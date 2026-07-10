@@ -1,0 +1,1459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>RFP Case File — SPS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.7.0/mammoth.browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --paper: #eceee2;
+    --paper-raised: #f8f8f1;
+    --paper-recede: #dfe1d2;
+    --ink: #1c231d;
+    --ink-soft: #4c5647;
+    --ink-faint: #8b9382;
+    --rule: rgba(28,35,29,0.15);
+    --rule-strong: rgba(28,35,29,0.28);
+    --navy: #172a3a;
+    --navy-soft: #24405a;
+    --navy-text: #cdd8de;
+    --brass: #8f6c22;
+    --brass-bg: #efe3c3;
+    --stamp-go: #2c5233;
+    --stamp-go-bg: #dfe8dc;
+    --stamp-caution: #855a12;
+    --stamp-caution-bg: #f1e4c4;
+    --stamp-nogo: #8f271e;
+    --stamp-nogo-bg: #f2ddd7;
+    --font-display: 'Fraunces', serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+    --font-body: 'Public Sans', system-ui, sans-serif;
+    --noise: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #10161c;
+      --paper-raised: #171f27;
+      --paper-recede: #0b1015;
+      --ink: #e7e9df;
+      --ink-soft: #aab3a2;
+      --ink-faint: #67715f;
+      --rule: rgba(231,233,223,0.12);
+      --rule-strong: rgba(231,233,223,0.22);
+      --navy: #0b1622;
+      --navy-soft: #16283a;
+      --navy-text: #cdd8de;
+      --brass: #d3b568;
+      --brass-bg: #2c2410;
+      --stamp-go: #7fbf8b;
+      --stamp-go-bg: #16261a;
+      --stamp-caution: #e3b768;
+      --stamp-caution-bg: #2b2211;
+      --stamp-nogo: #e08a7d;
+      --stamp-nogo-bg: #2c1613;
+    }
+  }
+
+  body {
+    font-family: var(--font-body);
+    background: var(--paper-recede);
+    color: var(--ink);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 2.5rem 1rem 3.5rem;
+    line-height: 1.5;
+  }
+
+  .desk { width: 100%; max-width: 840px; }
+
+  /* ── Header ─────────────────────────────────────────────── */
+  .folder-header {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; padding: 0 6px 14px;
+  }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .mark {
+    width: 40px; height: 40px; border-radius: 3px;
+    background: var(--navy); color: var(--navy-text);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-mono); font-weight: 600; font-size: 12px; letter-spacing: 0.02em;
+    flex-shrink: 0;
+  }
+  .eyebrow {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.09em;
+    text-transform: uppercase; color: var(--ink-faint);
+  }
+  .title { font-family: var(--font-display); font-size: 21px; font-weight: 600; margin-top: 1px; }
+  .case-id {
+    font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-soft);
+    border: 1px solid var(--rule-strong); border-radius: 3px; padding: 5px 10px;
+    background: var(--paper-raised); white-space: nowrap;
+  }
+  .case-id.open { color: var(--ink); border-color: var(--rule-strong); }
+
+  /* ── Engine toggle ──────────────────────────────────────── */
+  .engine-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    border: 1px solid var(--rule-strong); border-radius: 4px; padding: 0.85rem 1rem;
+    background: var(--paper); margin-top: 1.25rem; flex-wrap: wrap;
+  }
+  .engine-label { font-size: 12.5px; }
+  .engine-label .t { font-weight: 600; }
+  .engine-label .d { color: var(--ink-faint); font-size: 11.5px; margin-top: 2px; }
+  .engine-switch { display: flex; border: 1px solid var(--rule-strong); border-radius: 20px; overflow: hidden; flex-shrink: 0; }
+  .engine-opt {
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+    padding: 7px 14px; cursor: pointer; background: var(--paper-raised); color: var(--ink-faint); border: none;
+    transition: background 0.15s, color 0.15s;
+  }
+  .engine-opt.active { background: var(--navy); color: var(--navy-text); }
+  .engine-status { font-family: var(--font-mono); font-size: 10.5px; margin-top: 8px; }
+  .engine-status.ok { color: var(--stamp-go); }
+  .engine-status.bad { color: var(--stamp-nogo); }
+  .engine-badge {
+    display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: 0.04em; padding: 4px 10px; border-radius: 20px; border: 1px solid var(--rule-strong);
+    color: var(--ink-soft); margin-top: 6px;
+  }
+  .engine-badge.ai { border-color: var(--brass); color: var(--brass); background: var(--brass-bg); }
+  .engine-badge.local { border-color: var(--stamp-go); color: var(--stamp-go); background: var(--stamp-go-bg); }
+
+  /* ── Folder shell ───────────────────────────────────────── */
+  .folder { position: relative; }
+  .tabs { display: flex; padding-left: 18px; position: relative; z-index: 1; }
+  .tab {
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 500; letter-spacing: 0.06em;
+    text-transform: uppercase; cursor: pointer; user-select: none;
+    padding: 9px 16px 12px; margin-right: -1px; margin-bottom: -1px;
+    background: var(--navy); color: rgba(205,216,222,0.55);
+    border: 1px solid var(--navy);
+    clip-path: polygon(8% 0, 100% 0, 92% 100%, 0 100%);
+    transition: transform 0.12s, background 0.12s, color 0.12s;
+    position: relative; top: 3px;
+  }
+  .tab:hover { color: var(--navy-text); }
+  .tab.on {
+    background: var(--paper-raised); color: var(--ink);
+    border-color: var(--rule-strong);
+    top: 0; font-weight: 600;
+  }
+
+  .page {
+    background: var(--paper-raised);
+    border: 1px solid var(--rule-strong);
+    border-radius: 2px 10px 10px 10px;
+    padding: 1.75rem;
+    position: relative;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.10);
+  }
+  .page::before {
+    content: ''; position: absolute; inset: 0;
+    background-image: var(--noise); opacity: 0.035; mix-blend-mode: multiply;
+    pointer-events: none; border-radius: inherit;
+  }
+  @media (prefers-color-scheme: dark) { .page::before { mix-blend-mode: screen; opacity: 0.05; } }
+
+  /* ── Upload view ────────────────────────────────────────── */
+  .drop-zone {
+    border: 1.5px dashed var(--rule-strong);
+    border-radius: 4px;
+    padding: 2.75rem 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    position: relative;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .drop-zone:hover, .drop-zone.drag { border-color: var(--ink-soft); background: rgba(0,0,0,0.02); }
+  .drop-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .drop-mark {
+    width: 46px; height: 46px; margin: 0 auto 14px; border: 1.5px solid var(--rule-strong); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-mono); font-size: 18px; color: var(--ink-soft);
+  }
+  .drop-title { font-family: var(--font-display); font-size: 17px; font-weight: 600; }
+  .drop-sub { font-size: 13px; color: var(--ink-faint); margin-top: 5px; }
+  .drop-badge {
+    display: inline-flex; align-items: center; gap: 6px; margin-top: 1rem;
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.04em;
+    color: var(--stamp-go); background: var(--stamp-go-bg);
+    padding: 5px 12px; border-radius: 20px;
+  }
+  .drop-badge::before { content: '●'; font-size: 8px; }
+
+  .file-row {
+    display: flex; align-items: center; gap: 12px;
+    border: 1px solid var(--rule); border-radius: 3px; padding: 0.8rem 1rem;
+    margin-top: 12px; background: var(--paper);
+  }
+  .file-tag {
+    font-family: var(--font-mono); font-size: 10px; font-weight: 600; letter-spacing: 0.04em;
+    color: var(--stamp-nogo); border: 1px solid var(--stamp-nogo); border-radius: 3px;
+    padding: 3px 6px; flex-shrink: 0;
+  }
+  .file-name { font-size: 13.5px; font-weight: 500; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file-size { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); }
+  .btn-remove {
+    background: none; border: none; cursor: pointer; color: var(--ink-faint);
+    font-family: var(--font-mono); font-size: 14px; padding: 4px 6px;
+  }
+  .btn-remove:hover { color: var(--stamp-nogo); }
+
+  .scope-row { margin-top: 1.5rem; }
+
+  .profile-row { margin-top: 1.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .profile-field label {
+    display: block; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--ink-faint); margin-bottom: 6px;
+  }
+  .profile-field textarea {
+    width: 100%; min-height: 78px; resize: vertical; font-family: var(--font-body); font-size: 12.5px;
+    color: var(--ink); background: var(--paper); border: 1px solid var(--rule-strong); border-radius: 4px;
+    padding: 0.65rem 0.75rem; line-height: 1.5;
+  }
+  .profile-field textarea:focus { outline: none; border-color: var(--ink-soft); }
+  .profile-hint { font-size: 11px; color: var(--ink-faint); margin-top: 6px; grid-column: 1 / -1; }
+  @media (max-width: 560px) { .profile-row { grid-template-columns: 1fr; } }
+  .scope-label {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--ink-faint); margin-bottom: 8px;
+  }
+  .scope-hint { font-size: 12px; color: var(--ink-faint); margin-top: 6px; }
+
+  .err-box {
+    margin-top: 12px; border: 1px solid var(--stamp-nogo); background: var(--stamp-nogo-bg);
+    color: var(--stamp-nogo); border-radius: 3px; padding: 0.7rem 1rem; font-size: 13px;
+  }
+
+  .btn-analyse {
+    width: 100%; margin-top: 1.5rem; padding: 0.9rem;
+    font-family: var(--font-mono); font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+    background: var(--navy); color: var(--navy-text);
+    border: none; border-radius: 3px; cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-analyse:hover:not(:disabled) { background: var(--navy-soft); }
+  .btn-analyse:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── Processing view ────────────────────────────────────── */
+  .processing { display: flex; flex-direction: column; align-items: center; gap: 1.75rem; padding: 1.5rem 0; }
+  .stamp-press { position: relative; width: 64px; height: 64px; }
+  .stamp-block {
+    position: absolute; inset: 0; border: 3px solid var(--ink); border-radius: 4px;
+    animation: press 1.1s ease-in-out infinite;
+  }
+  .stamp-block::after {
+    content: ''; position: absolute; left: 50%; top: -22px; width: 4px; height: 22px;
+    background: var(--ink); transform: translateX(-50%);
+  }
+  @keyframes press {
+    0%, 100% { transform: translateY(-10px); opacity: 0.55; }
+    45% { transform: translateY(0); opacity: 1; }
+    55% { transform: translateY(0); opacity: 1; }
+  }
+  .proc-steps { display: flex; flex-direction: column; gap: 9px; width: 100%; max-width: 300px; }
+  .proc-step {
+    font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-faint);
+    display: flex; align-items: center; gap: 9px;
+  }
+  .proc-step .mk { width: 14px; text-align: center; }
+  .proc-step.active { color: var(--ink); font-weight: 600; }
+  .proc-step.done { color: var(--ink-soft); }
+
+  /* ── Results ────────────────────────────────────────────── */
+  .results { display: flex; flex-direction: column; gap: 1.5rem; }
+  .result-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .doc-title { font-family: var(--font-display); font-size: 18px; font-weight: 600; max-width: 480px; }
+  .action-btns { display: flex; gap: 8px; }
+  .btn-action {
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.03em;
+    padding: 7px 12px; border: 1px solid var(--rule-strong); background: var(--paper);
+    color: var(--ink-soft); border-radius: 3px; cursor: pointer;
+  }
+  .btn-action:hover { border-color: var(--ink-soft); color: var(--ink); }
+
+  .verdict-strip {
+    display: flex; align-items: center; gap: 1.75rem;
+    border: 1px solid var(--rule-strong); border-radius: 4px; padding: 1.4rem;
+    background: var(--paper);
+  }
+  .stamp {
+    flex-shrink: 0; width: 118px; height: 78px; position: relative;
+    display: flex; align-items: center; justify-content: center;
+    transform: rotate(-6deg);
+  }
+  .stamp-face {
+    width: 100%; height: 100%; border: 3px solid; border-radius: 6px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    position: relative; overflow: hidden;
+  }
+  .stamp-face::before {
+    content: ''; position: absolute; inset: -2px;
+    background-image: var(--noise); mix-blend-mode: multiply; opacity: 0.5;
+  }
+  @media (prefers-color-scheme: dark) { .stamp-face::before { mix-blend-mode: screen; opacity: 0.35; } }
+  .stamp-face::after {
+    content: ''; position: absolute; inset: 4px; border: 1px solid; border-radius: 3px; opacity: 0.6;
+  }
+  .stamp-line1 { font-family: var(--font-mono); font-weight: 700; font-size: 12px; letter-spacing: 0.06em; z-index: 1; }
+  .stamp-line2 { font-family: var(--font-mono); font-weight: 600; font-size: 9px; letter-spacing: 0.1em; z-index: 1; margin-top: 3px; }
+  .stamp.go .stamp-face { border-color: var(--stamp-go); color: var(--stamp-go); }
+  .stamp.go .stamp-face::after { border-color: var(--stamp-go); }
+  .stamp.caution .stamp-face { border-color: var(--stamp-caution); color: var(--stamp-caution); }
+  .stamp.caution .stamp-face::after { border-color: var(--stamp-caution); }
+  .stamp.nogo .stamp-face { border-color: var(--stamp-nogo); color: var(--stamp-nogo); }
+  .stamp.nogo .stamp-face::after { border-color: var(--stamp-nogo); }
+
+  .verdict-mid { flex: 1; display: flex; align-items: center; gap: 1.5rem; }
+  .fit-score { text-align: center; flex-shrink: 0; }
+  .fit-score .num { font-family: var(--font-mono); font-size: 30px; font-weight: 600; line-height: 1; }
+  .fit-score .lbl { font-family: var(--font-mono); font-size: 9px; color: var(--ink-faint); letter-spacing: 0.06em; margin-top: 4px; }
+  .verdict-text { font-size: 13px; color: var(--ink-soft); line-height: 1.6; }
+
+  .disq-box {
+    border: 1px solid var(--stamp-nogo); background: var(--stamp-nogo-bg); border-radius: 4px;
+    padding: 1rem 1.15rem;
+  }
+  .disq-box .hd {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--stamp-nogo); margin-bottom: 8px;
+  }
+  .disq-box li { list-style: none; font-size: 12.5px; color: var(--stamp-nogo); margin-top: 6px; padding-left: 14px; position: relative; line-height: 1.55; }
+  .disq-box li::before { content: '⚑'; position: absolute; left: 0; top: 0; }
+
+  .fit-note { font-size: 12px; color: var(--ink-soft); margin-bottom: 0.9rem; line-height: 1.5; }
+  .fit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+  .fit-col .hd { font-family: var(--font-mono); font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 8px; }
+  .fit-col.strengths .hd { color: var(--stamp-go); }
+  .fit-col.gaps .hd { color: var(--stamp-nogo); }
+  .fit-col ul { list-style: none; display: flex; flex-direction: column; gap: 7px; }
+  .fit-col li { font-size: 12.5px; line-height: 1.5; padding-left: 14px; position: relative; }
+  .fit-col li::before { position: absolute; left: 0; top: 1px; font-size: 10px; }
+  .fit-col.strengths li::before { content: '✓'; color: var(--stamp-go); }
+  .fit-col.gaps li::before { content: '!'; color: var(--stamp-nogo); }
+  @media (max-width: 560px) { .fit-grid { grid-template-columns: 1fr; } }
+
+  .ledger-bar { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--rule-strong); border-radius: 4px; overflow: hidden; }
+  .ledger-cell { padding: 0.9rem 0.5rem; text-align: center; border-right: 1px solid var(--rule); }
+  .ledger-cell:last-child { border-right: none; }
+  .ledger-cell .n { font-family: var(--font-mono); font-size: 22px; font-weight: 600; }
+  .ledger-cell .l { font-family: var(--font-mono); font-size: 9.5px; color: var(--ink-faint); letter-spacing: 0.05em; text-transform: uppercase; margin-top: 3px; }
+
+  .file-section { border: 1px solid var(--rule-strong); border-radius: 4px; overflow: hidden; }
+  .file-section-hd {
+    padding: 0.8rem 1.1rem; border-bottom: 1px solid var(--rule);
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--paper);
+  }
+  .file-section-hd .t {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase;
+  }
+  .file-section-hd .c { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint); }
+  .file-section-bd { padding: 1rem 1.1rem; display: flex; flex-direction: column; gap: 0.7rem; }
+
+  .deliv-row { display: flex; gap: 12px; font-size: 13.5px; line-height: 1.55; }
+  .deliv-num { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-faint); flex-shrink: 0; padding-top: 1px; min-width: 18px; }
+
+  /* ── Results tab strip ─────────────────────────────────────── */
+  .res-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--rule-strong); margin-bottom: 0.25rem; }
+  .res-tab {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+    padding: 8px 4px; margin-bottom: -1px; border: none; background: none; cursor: pointer;
+    color: var(--ink-faint); border-bottom: 2px solid transparent;
+  }
+  .res-tab.on { color: var(--ink); border-bottom-color: var(--ink); }
+  .res-tab .cnt { color: var(--ink-faint); font-weight: 500; margin-left: 4px; }
+
+  /* ── Deliverables tree editor ──────────────────────────────── */
+  .dtree-section { border: 1px solid var(--rule-strong); border-radius: 4px; overflow: hidden; margin-bottom: 1rem; }
+  .dtree-parent-hd {
+    display: flex; align-items: center; gap: 10px; padding: 0.7rem 1rem; background: var(--paper);
+    border-bottom: 1px solid var(--rule);
+  }
+  .dtree-parent-hd .num { font-family: var(--font-mono); font-weight: 700; font-size: 12.5px; color: var(--ink-faint); flex-shrink: 0; }
+  .dtree-parent-hd input.parent-title {
+    flex: 1; border: none; background: none; font-family: var(--font-display); font-size: 14.5px; font-weight: 600;
+    color: var(--ink); padding: 2px 4px;
+  }
+  .dtree-parent-hd input.parent-title:focus { outline: 1px solid var(--rule-strong); border-radius: 2px; }
+  .dtree-icon-btn {
+    border: 1px solid var(--rule-strong); background: var(--paper-raised); color: var(--ink-faint); border-radius: 3px;
+    width: 24px; height: 24px; font-family: var(--font-mono); font-size: 12px; cursor: pointer; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .dtree-icon-btn:hover { color: var(--ink); border-color: var(--ink-soft); }
+  .dtree-icon-btn.danger:hover { color: var(--stamp-nogo); border-color: var(--stamp-nogo); }
+
+  .dtree-child-row {
+    display: grid; grid-template-columns: 42px 1.6fr 1fr 1fr 66px 78px 24px;
+    gap: 8px; align-items: center; padding: 0.55rem 1rem; border-bottom: 1px solid var(--rule);
+  }
+  .dtree-child-row:last-of-type { border-bottom: none; }
+  .dtree-child-row .num { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); }
+  .dtree-child-row input, .dtree-child-row select {
+    font-family: var(--font-body); font-size: 12px; color: var(--ink); background: var(--paper);
+    border: 1px solid var(--rule-strong); border-radius: 3px; padding: 5px 6px; width: 100%;
+  }
+  .dtree-child-row input.title-input { font-weight: 500; }
+  .dtree-child-row input[type="number"] { text-align: center; }
+  .dtree-status {
+    font-family: var(--font-mono); font-size: 9px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    text-align: center; padding: 5px 4px; border-radius: 3px; border: 1px solid;
+  }
+  .dtree-status.auto { color: var(--ink-faint); border-color: var(--rule-strong); background: var(--paper); }
+  .dtree-status.manual { color: var(--brass); border-color: var(--brass); background: var(--brass-bg); }
+  .dtree-page {
+    font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint);
+    text-align: center; padding: 5px 4px; border: 1px solid var(--rule); border-radius: 3px; background: var(--paper);
+  }
+  .dtree-source-note {
+    font-family: var(--font-mono); font-size: 9.5px; color: var(--ink-faint); font-style: italic; flex-shrink: 0;
+    white-space: nowrap;
+  }
+  .dtree-add-child {
+    margin: 0.6rem 1rem 0.8rem; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.03em;
+    color: var(--ink-soft); background: none; border: 1px dashed var(--rule-strong); border-radius: 3px;
+    padding: 6px 12px; cursor: pointer;
+  }
+  .dtree-add-child:hover { border-color: var(--ink-soft); color: var(--ink); }
+  .dtree-add-section {
+    width: 100%; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--ink-soft); background: var(--paper); border: 1px dashed var(--rule-strong); border-radius: 4px;
+    padding: 0.75rem; cursor: pointer;
+  }
+  .dtree-add-section:hover { border-color: var(--ink-soft); color: var(--ink); }
+  @media (max-width: 700px) {
+    .dtree-child-row { grid-template-columns: 1fr; gap: 5px; }
+    .dtree-child-row .num { display: none; }
+  }
+
+  .eval-row { display: flex; align-items: flex-start; gap: 12px; }
+  .eval-w { font-family: var(--font-mono); font-weight: 600; font-size: 13px; min-width: 40px; text-align: right; padding-top: 1px; }
+  .eval-body { flex: 1; }
+  .eval-name { font-size: 13.5px; font-weight: 500; }
+  .eval-desc { font-size: 11.5px; color: var(--ink-faint); margin-top: 1px; }
+  .eval-track { height: 4px; background: var(--rule); border-radius: 2px; margin-top: 6px; }
+  .eval-fill { height: 100%; border-radius: 2px; background: var(--ink); }
+
+  .dept-page { margin-bottom: 4px; }
+  .dept-page-hd {
+    display: flex; align-items: center; gap: 8px;
+    font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 0 2px 8px;
+  }
+  .dept-swatch { width: 8px; height: 8px; border-radius: 50%; }
+  .cl-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .cl-table th {
+    text-align: left; font-family: var(--font-mono); font-size: 9.5px; font-weight: 600; color: var(--ink-faint);
+    text-transform: uppercase; letter-spacing: 0.04em; padding: 7px 9px; border-bottom: 1px solid var(--rule-strong);
+  }
+  .cl-table td { padding: 9px 9px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  .cl-table tr:last-child td { border-bottom: none; }
+  .cl-item { font-weight: 600; }
+  .cl-q { color: var(--ink-soft); font-size: 11.5px; }
+  .cl-reason { color: var(--ink-soft); font-size: 11.5px; }
+  .yn { font-family: var(--font-mono); font-weight: 700; text-align: center; }
+  .stamp-tag {
+    display: inline-block; font-family: var(--font-mono); font-size: 9px; font-weight: 700;
+    letter-spacing: 0.04em; padding: 3px 7px; border-radius: 3px; border: 1px solid; white-space: nowrap;
+  }
+
+  .divider { height: 1px; background: var(--rule); margin: 0.25rem 0; }
+  .deskfoot {
+    text-align: center; font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint);
+    letter-spacing: 0.03em; padding-top: 1.25rem;
+  }
+
+  @media (max-width: 560px) {
+    .verdict-strip { flex-direction: column; align-items: flex-start; }
+    .verdict-mid { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+    .ledger-bar { grid-template-columns: 1fr; }
+    .ledger-cell { border-right: none; border-bottom: 1px solid var(--rule); }
+    .ledger-cell:last-child { border-bottom: none; }
+    .cl-table, .cl-table thead { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="desk">
+  <div class="folder-header">
+    <div class="header-left">
+      <div class="mark">SPS</div>
+      <div>
+        <div class="eyebrow">Pre-bid review · local engine</div>
+        <div class="title">RFP Case File</div>
+      </div>
+    </div>
+    <div class="case-id" id="caseId">NO CASE OPEN</div>
+  </div>
+
+  <div class="folder">
+    <div class="tabs" id="deptTabs"></div>
+
+    <div class="page">
+
+      <!-- UPLOAD -->
+      <div id="view-upload">
+        <div class="drop-zone" id="dropZone">
+          <input type="file" id="fileInput" accept=".pdf,.doc,.docx,.txt" />
+          <div class="drop-mark">＋</div>
+          <div class="drop-title">Insert RFP document</div>
+          <div class="drop-sub">PDF, DOCX, or TXT — up to 10 MB</div>
+          <div class="drop-badge" id="dropBadge">◆ Claude API mode — set the engine below</div>
+        </div>
+
+        <div id="fileInfo" style="display:none;"></div>
+
+        <div class="scope-row">
+          <div class="scope-label">Review scope</div>
+          <div class="scope-hint" id="scopeHint">All four departments selected. Use the folder tabs above to narrow the review.</div>
+        </div>
+
+        <div class="profile-row">
+          <div class="profile-field">
+            <label for="capabilitiesInput">Company capabilities</label>
+            <textarea id="capabilitiesInput" placeholder="e.g. Identity &amp; access management, SSO/MFA implementation, SOC 2 audits, federal IAM contracts, 24/7 support"></textarea>
+          </div>
+          <div class="profile-field">
+            <label for="gapsInput">Company gaps</label>
+            <textarea id="gapsInput" placeholder="e.g. No cleared/TS personnel, limited hardware manufacturing, no 24/7 SOC coverage yet"></textarea>
+          </div>
+          <div class="profile-hint">Optional, but recommended: the analysis weighs the RFP's requirements against what you enter here — both engines use it to flag capability gaps, not just fixed SPS policy rules.</div>
+        </div>
+
+        <div class="engine-row">
+          <div class="engine-label">
+            <div class="t" id="engineLabelT">Analysis engine: Claude (AI)</div>
+            <div class="d" id="engineLabelD">Document text is sent to a local backend, which calls the configured AI provider.</div>
+          </div>
+          <div class="engine-switch">
+            <button type="button" class="engine-opt active" id="btnEngineAi" onclick="setEngine('ai')">AI</button>
+            <button type="button" class="engine-opt" id="btnEngineLocal" onclick="setEngine('local')">Offline</button>
+          </div>
+        </div>
+        <div class="engine-status" id="engineStatus"></div>
+
+        <div id="errBox" style="display:none;"></div>
+
+        <button class="btn-analyse" id="btnAnalyse" disabled onclick="startAnalysis()">Open case &amp; analyse</button>
+      </div>
+
+      <!-- PROCESSING -->
+      <div id="view-scan" style="display:none;">
+        <div class="processing">
+          <div class="stamp-press"><div class="stamp-block"></div></div>
+          <div class="proc-steps" id="procSteps"></div>
+        </div>
+      </div>
+
+      <!-- RESULTS -->
+      <div id="view-results" style="display:none;"></div>
+
+    </div>
+  </div>
+
+  <div class="deskfoot">SPS internal tool · rule-based, offline analysis engine · v2</div>
+</div>
+
+<script>
+const DEPTS = ['Financial','Legal','Technical','Operations'];
+const RESPONSIBLE_OPTIONS = ['Unassigned', 'Bid Manager', 'Technical Lead', 'Legal', 'Finance', 'Operations', 'Executive Sponsor'];
+const SUBTYPE_OPTIONS = ['Narrative', 'Form', 'Certification', 'Pricing/Cost', 'Reference', 'Resume/Key Personnel', 'Other'];
+const DEPT_COLOR = {
+  Financial: getComputedStyle(document.documentElement).getPropertyValue('--stamp-go').trim(),
+  Legal: '#3a5a8f',
+  Technical: '#6a4a8f',
+  Operations: getComputedStyle(document.documentElement).getPropertyValue('--stamp-caution').trim()
+};
+
+let selectedDepts = new Set(DEPTS);
+let uploadedFile = null;
+let analysisData = null;
+let caseNumber = null;
+let resultsTab = 'overview';
+
+// ── Engine mode (AI backend vs. offline local engine) ──────────────────
+const API_BASE = (window.RFP_API_BASE || 'http://localhost:3001');
+let engineMode = 'ai';
+
+function setEngine(mode) {
+  engineMode = mode;
+  document.getElementById('btnEngineAi').classList.toggle('active', mode === 'ai');
+  document.getElementById('btnEngineLocal').classList.toggle('active', mode === 'local');
+  const t = document.getElementById('engineLabelT');
+  const d = document.getElementById('engineLabelD');
+  const badge = document.getElementById('dropBadge');
+  if (mode === 'ai') {
+    t.textContent = 'Analysis engine: Claude (AI)';
+    d.textContent = 'Document text is sent to a local backend, which calls the configured AI provider.';
+    badge.textContent = '◆ AI mode — document text is sent to Claude via your backend';
+    checkBackend();
+  } else {
+    t.textContent = 'Analysis engine: Offline rules';
+    d.textContent = 'Runs entirely in this browser — nothing leaves your machine.';
+    badge.textContent = '● Offline mode — nothing leaves this browser';
+    document.getElementById('engineStatus').textContent = '';
+  }
+}
+async function checkBackend() {
+  const el = document.getElementById('engineStatus');
+  el.className = 'engine-status'; el.textContent = 'Checking backend…';
+  try {
+    const res = await fetch(`${API_BASE}/api/health`, { method: 'GET' });
+    if (!res.ok) throw new Error('bad status');
+    const data = await res.json();
+    el.className = 'engine-status ok';
+    el.textContent = `Backend reachable · provider: ${data.provider || '?'} · model: ${data.model || 'unknown'}`;
+  } catch (e) {
+    el.className = 'engine-status bad';
+    el.textContent = `Backend not reachable at ${API_BASE} — start it with "npm start" in /backend, or switch to Offline.`;
+  }
+}
+
+// ── Tabs ───────────────────────────────────────────────────────────────
+function initTabs() {
+  const el = document.getElementById('deptTabs');
+  el.innerHTML = '';
+  DEPTS.forEach(d => {
+    const btn = document.createElement('div');
+    btn.className = 'tab on';
+    btn.textContent = d;
+    btn.onclick = () => {
+      if (selectedDepts.has(d)) { selectedDepts.delete(d); btn.classList.remove('on'); }
+      else { selectedDepts.add(d); btn.classList.add('on'); }
+      updateScopeHint();
+    };
+    el.appendChild(btn);
+  });
+}
+function updateScopeHint() {
+  const hint = document.getElementById('scopeHint');
+  const n = selectedDepts.size;
+  if (n === DEPTS.length) hint.textContent = 'All four departments selected. Use the folder tabs above to narrow the review.';
+  else if (n === 0) hint.textContent = 'No departments selected — select at least one folder tab above.';
+  else hint.textContent = `Reviewing: ${[...selectedDepts].join(', ')}.`;
+}
+
+// ── Processing steps ─────────────────────────────────────────────────
+const STEPS = [
+  { label: 'Reading document' },
+  { label: 'Extracting deliverables' },
+  { label: 'Scoring evaluation criteria' },
+  { label: 'Building compliance checklist' },
+  { label: 'Applying SPS clearance rules' },
+];
+function setProcStep(idx) {
+  const el = document.getElementById('procSteps');
+  el.innerHTML = '';
+  STEPS.forEach((s, i) => {
+    const div = document.createElement('div');
+    const cls = i < idx ? 'done' : i === idx ? 'active' : '';
+    div.className = 'proc-step ' + cls;
+    const mk = i < idx ? '✓' : i === idx ? '›' : '·';
+    div.innerHTML = `<span class="mk">${mk}</span> ${s.label}`;
+    el.appendChild(div);
+  });
+}
+
+// ── Views ────────────────────────────────────────────────────────────
+function showView(name) {
+  ['upload','scan','results'].forEach(v => {
+    document.getElementById('view-'+v).style.display = v === name ? '' : 'none';
+  });
+}
+
+// ── File handling ────────────────────────────────────────────────────
+document.getElementById('fileInput').addEventListener('change', e => handleFile(e.target.files[0]));
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag'); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+
+function makeCaseNumber() {
+  const y = new Date().getFullYear();
+  const n = Math.floor(1000 + Math.random() * 9000);
+  return `CASE-${y}-${n}`;
+}
+
+function handleFile(file) {
+  if (!file) return;
+  if (file.size > 10 * 1024 * 1024) { showErr('File exceeds 10 MB.'); return; }
+  uploadedFile = file;
+  caseNumber = makeCaseNumber();
+  showErr('');
+  const info = document.getElementById('fileInfo');
+  info.style.display = '';
+  info.innerHTML = `<div class="file-row">
+    <div class="file-tag">FILE</div>
+    <div class="file-name">${file.name}</div>
+    <div class="file-size">${(file.size/1024).toFixed(0)} KB</div>
+    <button class="btn-remove" onclick="removeFile()" aria-label="Remove">✕</button>
+  </div>`;
+  document.getElementById('btnAnalyse').disabled = false;
+  const cid = document.getElementById('caseId');
+  cid.textContent = caseNumber;
+  cid.classList.add('open');
+}
+function removeFile() {
+  uploadedFile = null; caseNumber = null;
+  document.getElementById('fileInfo').style.display = 'none';
+  document.getElementById('fileInput').value = '';
+  document.getElementById('btnAnalyse').disabled = true;
+  const cid = document.getElementById('caseId');
+  cid.textContent = 'NO CASE OPEN'; cid.classList.remove('open');
+}
+function showErr(msg) {
+  const el = document.getElementById('errBox');
+  if (!msg) { el.style.display = 'none'; return; }
+  el.style.display = '';
+  el.innerHTML = `<div class="err-box">${msg}</div>`;
+}
+
+// ── Main analysis ────────────────────────────────────────────────────
+async function startAnalysis() {
+  if (!uploadedFile) return;
+  if (selectedDepts.size === 0) { showErr('Select at least one department to review.'); return; }
+  showView('scan'); setProcStep(0);
+
+  let fileText = '', pageStarts = null;
+  try {
+    const extracted = await extractText(uploadedFile);
+    fileText = extracted.text;
+    pageStarts = extracted.pageStarts;
+  }
+  catch (e) { showView('upload'); showErr('Could not read that file. Try a PDF, DOCX, or TXT.'); return; }
+
+  const depts = [...selectedDepts];
+  const capabilities = document.getElementById('capabilitiesInput').value.trim();
+  const gaps = document.getElementById('gapsInput').value.trim();
+  let parsed;
+
+  if (engineMode === 'ai') {
+    await tick(200); setProcStep(1);
+    try {
+      const aiText = insertPageMarkers(fileText, pageStarts);
+      parsed = await callBackendAnalyze(aiText, depts, uploadedFile.name, capabilities, gaps);
+    } catch (e) {
+      showView('upload');
+      showErr(`AI analysis failed: ${e.message}. Check the backend is running (see engine status above), or switch to Offline mode.`);
+      return;
+    }
+    setProcStep(3); await tick(250); setProcStep(4); await tick(300);
+  } else {
+    await tick(250); setProcStep(1);
+    await tick(350); setProcStep(2);
+    await tick(350); setProcStep(3);
+    await tick(300);
+    parsed = analyseLocally(fileText, depts, uploadedFile.name, capabilities, gaps, pageStarts);
+    setProcStep(4);
+    await tick(400);
+  }
+
+  analysisData = parsed;
+  resultsTab = 'overview';
+  renderResults(parsed);
+  showView('results');
+}
+function tick(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// Inserts readable "[PAGE n]" markers at each page boundary so the AI
+// engine can determine which page a deliverable came from. No-op for
+// formats with no page concept (DOCX/TXT).
+function insertPageMarkers(text, pageStarts) {
+  if (!pageStarts || !pageStarts.length) return text;
+  let out = text;
+  for (let i = pageStarts.length - 1; i >= 0; i--) {
+    const { page, start } = pageStarts[i];
+    out = out.slice(0, start) + `\n[PAGE ${page}]\n` + out.slice(start);
+  }
+  return out;
+}
+
+// ── AI backend call ──────────────────────────────────────────────────
+async function callBackendAnalyze(text, departments, filename, capabilities, gaps) {
+  const res = await fetch(`${API_BASE}/api/analyze`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, departments, filename, capabilities, gaps })
+  });
+  if (!res.ok) {
+    let msg = `HTTP ${res.status}`;
+    try { const j = await res.json(); if (j.error) msg = j.error; } catch (_) {}
+    throw new Error(msg);
+  }
+  const data = await res.json();
+  return data;
+}
+
+// ── File extraction (fully local, no network) ──────────────────────────
+// Every extractor returns { text, pageStarts }. pageStarts is an array of
+// { page, start } marking the character offset in `text` where each PDF
+// page begins — used to attribute a deliverable to the page it was found
+// on. DOCX/TXT have no page concept, so pageStarts is null for those.
+async function extractText(file) {
+  const name = file.name.toLowerCase();
+  if (name.endsWith('.pdf')) return extractPdf(file);
+  if (name.endsWith('.docx')) return extractDocx(file);
+  const text = await readFileAsText(file);
+  return { text, pageStarts: null };
+}
+function readFileAsText(file) {
+  return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsText(file); });
+}
+function readFileAsArrayBuffer(file) {
+  return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsArrayBuffer(file); });
+}
+async function extractDocx(file) {
+  const buf = await readFileAsArrayBuffer(file);
+  const result = await mammoth.extractRawText({ arrayBuffer: buf });
+  return { text: result.value || '', pageStarts: null };
+}
+async function extractPdf(file) {
+  if (window['pdfjsLib']) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+  }
+  const buf = await readFileAsArrayBuffer(file);
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  let text = '';
+  const pageStarts = [];
+  for (let i = 1; i <= pdf.numPages; i++) {
+    pageStarts.push({ page: i, start: text.length });
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map(it => it.str).join(' ') + '\n';
+  }
+  return { text, pageStarts };
+}
+
+// Given a character offset into extracted text, returns the PDF page
+// number it falls on, or null if no page map is available.
+function pageAtOffset(pageStarts, offset) {
+  if (!pageStarts || !pageStarts.length) return null;
+  let page = pageStarts[0].page;
+  for (const p of pageStarts) { if (p.start <= offset) page = p.page; else break; }
+  return page;
+}
+
+
+// ── Local rule-based analysis engine (no AI, no network) ────────────────
+function findSnippet(text, keywords, window) {
+  window = window || 160;
+  const lower = text.toLowerCase();
+  for (const k of keywords) {
+    const idx = lower.indexOf(k.toLowerCase());
+    if (idx !== -1) {
+      const start = Math.max(0, idx - 20);
+      return text.slice(start, idx + window).replace(/\s+/g, ' ').trim();
+    }
+  }
+  return null;
+}
+// goodWhenFound=true: presence of the keyword is a positive signal (GO); absence needs review.
+function checkRow(item, question, keywords, goodWhenFound, opts) {
+  opts = opts || {};
+  return (text) => {
+    const snip = findSnippet(text, keywords);
+    if (snip) {
+      return goodWhenFound
+        ? { item, question, yesNo: 'YES', status: 'go', decisionLabel: 'CLEARED', reason: `Found in document: "${snip}"` }
+        : { item, question, yesNo: 'YES', status: 'required', decisionLabel: 'REVIEW', reason: `Requirement present: "${snip}" — confirm before bidding.` };
+    }
+    return goodWhenFound
+      ? { item, question, yesNo: 'NO', status: 'required', decisionLabel: 'REVIEW', reason: opts.notFoundReason || 'Not explicitly found in document — confirm before bidding.' }
+      : { item, question, yesNo: 'NO', status: 'go', decisionLabel: 'CLEARED', reason: opts.notFoundReason || 'No such requirement found in document.' };
+  };
+}
+function findAmount(text, keyword, window) {
+  window = window || 200;
+  const lower = text.toLowerCase();
+  const idx = lower.indexOf(keyword.toLowerCase());
+  if (idx === -1) return null;
+  const chunk = text.slice(idx, idx + window);
+  const m = chunk.match(/\$\s?([\d,]+(?:\.\d+)?)\s?(million|m|k)?/i);
+  if (!m) return null;
+  let n = parseFloat(m[1].replace(/,/g, ''));
+  if (/million|m/i.test(m[2] || '')) n *= 1000000;
+  else if (/k/i.test(m[2] || '')) n *= 1000;
+  return n;
+}
+function hasKeyword(text, ...kws) {
+  const lower = text.toLowerCase();
+  return kws.some(k => lower.includes(k.toLowerCase()));
+}
+function findNet(text) {
+  const m = text.match(/net\s?(\d{1,3})/i);
+  return m ? parseInt(m[1], 10) : null;
+}
+function findDeadline(text) {
+  const m = text.match(/(deadline|due date|submission date)[^\n]{0,80}?(\d{1,2}\/\d{1,2}\/\d{2,4}|[A-Z][a-z]+ \d{1,2},? \d{4})/i);
+  return m ? m[2] : null;
+}
+// Finds section/subsection headings in the raw document text — numbered
+// headings ("3.2 Technical Proposal"), "SECTION IV: ..." style, and short
+// ALL-CAPS heading lines. Used so deliverables are grouped under the RFP's
+// own structure instead of a generic fixed category list.
+function extractHeadings(text) {
+  const found = [];
+  const patterns = [
+    /^[ \t]{0,3}(\d{1,2}(?:\.\d{1,2}){0,2})\s+([A-Z][A-Za-z0-9 ,\/&\-()]{3,80})[ \t]*$/gm,
+    /^[ \t]{0,3}(?:SECTION|Section)\s+([IVXLC]+|\d+)[:.\-]?\s+([A-Z][A-Za-z0-9 ,\/&\-()]{3,80})[ \t]*$/gm,
+    /^[ \t]{0,3}([A-Z][A-Z0-9 ,&\/\-]{7,70})[ \t]*$/gm
+  ];
+  patterns.forEach(re => {
+    let m;
+    while ((m = re.exec(text))) {
+      const title = (m[2] || m[1] || '').trim();
+      if (title && title.length >= 4 && title.length <= 90) found.push({ title, offset: m.index });
+    }
+  });
+  found.sort((a, b) => a.offset - b.offset);
+  // Drop near-duplicate headings that landed at (almost) the same offset.
+  const dedup = [];
+  found.forEach(h => { if (!dedup.length || h.offset - dedup[dedup.length - 1].offset > 5) dedup.push(h); });
+  return dedup;
+}
+function sectionForOffset(headings, offset) {
+  let title = null;
+  for (const h of headings) { if (h.offset <= offset) title = h.title; else break; }
+  return title || 'General Requirements';
+}
+
+// Restricts deliverable scanning to the part of the document that actually
+// describes submission requirements, and stops before any Evaluation
+// Criteria / Scoring section — deliverables and evaluation criteria are
+// extracted independently and should never bleed into each other.
+function deliverablesScanRange(text) {
+  const startMatch = text.match(/(scope of work|deliverables|statement of work|submission requirements)/i);
+  const start = startMatch ? startMatch.index : 0;
+  const evalMatch = text.slice(start + 1).match(/(evaluation criteria|scoring criteria|award criteria)/i);
+  const end = evalMatch ? start + 1 + evalMatch.index : text.length;
+  return { start, end };
+}
+
+// Same bullet/sentence detection as before, but keeps track of each item's
+// absolute character offset in the original text so it can be mapped to a
+// heading and a page number.
+function extractDeliverableItemsWithOffsets(text) {
+  const { start, end } = deliverablesScanRange(text);
+  const chunk = text.slice(start, end);
+  const bulletRe = /^[ \t]*(?:[\-\*•]\s+|\d+[\.\)]\s+)(.{8,220})$/gm;
+  let items = [];
+  let m;
+  while ((m = bulletRe.exec(chunk))) {
+    items.push({ title: m[1].trim(), offset: start + m.index });
+  }
+  if (items.length < 2) {
+    const sentenceRe = /(^|\.\s+)([A-Z][^.\n]{8,220}\b(?:shall|will|must)\s+(?:provide|deliver|develop|implement|design|maintain|support)\b[^.\n]{0,160})/gm;
+    items = [];
+    while ((m = sentenceRe.exec(chunk)) && items.length < 8) {
+      items.push({ title: m[2].trim(), offset: start + m.index + m[1].length });
+    }
+  }
+  const seen = new Set();
+  return items.filter(x => {
+    const k = x.title.toLowerCase();
+    if (seen.has(k)) return false;
+    seen.add(k); return true;
+  }).slice(0, 12);
+}
+
+// Classifies a deliverable phrase into a sub-type for display purposes only
+// (grouping now comes from the document's real headings, not this).
+function classifyDeliverable(title) {
+  const l = title.toLowerCase();
+  if (/\b(price|pricing|cost|budget|fee schedule|rate sheet)\b/.test(l)) return 'Pricing/Cost';
+  if (/\b(insurance|certificate|bond|w-9|w9|tax id|license|registration|certification)\b/.test(l)) return 'Certification';
+  if (/\b(form|attachment|exhibit|appendix)\b/.test(l)) return 'Form';
+  if (/\b(reference|past performance|client list)\b/.test(l)) return 'Reference';
+  if (/\b(resume|key personnel|staff qualifications|team|bio)\b/.test(l)) return 'Resume/Key Personnel';
+  return 'Narrative';
+}
+
+// Builds the two-level parent/child deliverables structure both engines
+// return. Parents are the RFP's own section headings (not a generic fixed
+// category list); each child carries the source page it was found on.
+function extractDeliverablesTree(text, pageStarts) {
+  const headings = extractHeadings(text);
+  const items = extractDeliverableItemsWithOffsets(text);
+  const bySection = new Map();
+  items.forEach(({ title, offset }) => {
+    const section = sectionForOffset(headings, offset);
+    const subType = classifyDeliverable(title);
+    const sourcePage = pageAtOffset(pageStarts, offset);
+    if (!bySection.has(section)) bySection.set(section, []);
+    bySection.get(section).push({ title, subType, sourcePage });
+  });
+  const tree = [];
+  let pNum = 0;
+  for (const [section, kids] of bySection.entries()) {
+    pNum++;
+    tree.push({
+      number: String(pNum),
+      title: section,
+      children: kids.map((k, i) => ({
+        number: `${pNum}.${i + 1}`,
+        title: k.title,
+        responsible: 'Unassigned',
+        subType: k.subType,
+        sourcePage: k.sourcePage,
+        status: 'Auto'
+      }))
+    });
+  }
+  return tree;
+}
+function extractEvaluation(text) {
+  const secMatch = text.match(/(evaluation criteria|scoring criteria|award criteria)([\s\S]{0,1500})/i);
+  let chunk = secMatch ? secMatch[2] : text;
+  const nextHeading = chunk.match(/\n\s*\d+[\.\)]\s+[A-Z][A-Z \/&\-]{3,}|\n\s*[A-Z][A-Z \/&\-]{6,}\n/);
+  if (nextHeading) chunk = chunk.slice(0, nextHeading.index);
+  const re = /([A-Z][A-Za-z \/&\-]{3,50}?)[\s:\-–]{1,4}(\d{1,3})\s?%|(\d{1,3})\s?%[\s:\-–]{1,4}([A-Z][A-Za-z \/&\-]{3,50})/g;
+  let m, out = [];
+  while ((m = re.exec(chunk)) && out.length < 6) {
+    const criterion = (m[1] || m[4] || '').trim();
+    const weight = parseInt(m[2] || m[3], 10);
+    if (criterion && weight > 0 && weight <= 100) out.push({ criterion, weight, description: '' });
+  }
+  if (!out.length) {
+    out = [
+      { criterion: 'Technical Approach', weight: 40, description: 'No explicit weighting found — estimated default split.' },
+      { criterion: 'Cost / Price', weight: 30, description: 'No explicit weighting found — estimated default split.' },
+      { criterion: 'Experience & Past Performance', weight: 30, description: 'No explicit weighting found — estimated default split.' }
+    ];
+  } else {
+    const total = out.reduce((s, e) => s + e.weight, 0);
+    if (total !== 100 && total > 0) out.forEach(e => e.weight = Math.round(e.weight * 100 / total));
+  }
+  return out;
+}
+
+function splitPhrases(s) {
+  if (!s) return [];
+  return s.split(/[,;\n]/).map(x => x.trim()).filter(Boolean).slice(0, 12);
+}
+function phraseRelevant(text, phrase) {
+  const words = phrase.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+  if (!words.length) return false;
+  const lower = text.toLowerCase();
+  const hits = words.filter(w => lower.includes(w));
+  return hits.length >= Math.max(1, Math.ceil(words.length * 0.4));
+}
+
+function analyseLocally(text, depts, filename, capabilities, gaps, pageStarts) {
+  const compliance = {};
+
+  if (depts.includes('Financial')) {
+    const financial = [];
+    const net = findNet(text);
+    if (net === null) {
+      financial.push({ item: 'Payment Terms', question: 'Is payment plan NET30 or less?', yesNo: 'NO', status: 'escalate', decisionLabel: 'ESCALATE', reason: 'Payment terms (e.g. NET30) are not explicitly stated in the document — confirm with issuer before bidding.' });
+    } else if (net <= 30) {
+      financial.push({ item: 'Payment Terms', question: 'Is payment plan NET30 or less?', yesNo: 'YES', status: 'go', decisionLabel: 'CLEARED', reason: `Document specifies NET${net} payment terms, within the NET30 SPS threshold.` });
+    } else {
+      financial.push({ item: 'Payment Terms', question: 'Is payment plan NET30 or less?', yesNo: 'NO', status: 'escalate', decisionLabel: 'ESCALATE', reason: `Document specifies NET${net} payment terms, exceeding NET30 — escalate to Accounting per SPS policy.` });
+    }
+    financial.push(checkRow('Financial Stability Requirements', 'Does RFP require financial statements or proof of financial stability?', ['financial stability', 'proof of financial'], false, { notFoundReason: 'No explicit requirement for financial statements or proof of financial stability found.' })(text));
+    if (/\bunaudited\b/i.test(text)) {
+      financial.push({ item: 'Unaudited Financial Statements', question: 'Are unaudited financial statements acceptable?', yesNo: 'YES', status: 'go', decisionLabel: 'CLEARED', reason: 'Document explicitly allows unaudited financial statements.' });
+    } else if (/\baudited\b/i.test(text)) {
+      financial.push({ item: 'Unaudited Financial Statements', question: 'Are unaudited financial statements acceptable?', yesNo: 'NO', status: 'required', decisionLabel: 'REVIEW', reason: 'Document references audited financial statements without confirming unaudited are acceptable — verify with issuer (SPS policy accepts unaudited by default).' });
+    } else {
+      financial.push({ item: 'Unaudited Financial Statements', question: 'Are unaudited financial statements acceptable?', yesNo: 'N/A', status: 'go', decisionLabel: 'CLEARED', reason: 'Financial statements are not explicitly required in the document — SPS policy accepts unaudited statements by default.' });
+    }
+    const ins = findAmount(text, 'insurance');
+    if (ins === null) {
+      financial.push({ item: 'Insurance Requirements', question: 'What is the required insurance amount? Is it $5M or less?', yesNo: 'NO', status: 'required', decisionLabel: 'REVIEW', reason: 'Required insurance amount is not specified in the document — confirm before bidding.' });
+    } else if (ins <= 5000000) {
+      financial.push({ item: 'Insurance Requirements', question: 'What is the required insurance amount? Is it $5M or less?', yesNo: 'YES', status: 'go', decisionLabel: 'CLEARED', reason: `Document specifies insurance coverage of $${ins.toLocaleString()}, within the $5M SPS threshold.` });
+    } else {
+      financial.push({ item: 'Insurance Requirements', question: 'What is the required insurance amount? Is it $5M or less?', yesNo: 'NO', status: 'nogo', decisionLabel: 'DENIED', reason: `Document specifies insurance coverage of $${ins.toLocaleString()}, exceeding the $5M SPS cap — NO-GO per policy.` });
+    }
+    financial.push({ item: 'Profitability Analysis', question: 'Can expected revenue cover projected costs?', yesNo: 'YES', status: 'go', decisionLabel: 'CLEARED', reason: 'Internal company assessment based on proposed pricing structure — confirm with Accounting before submission.' });
+    financial.push(checkRow('Bid Bond', 'Is a bid bond required?', ['bid bond', 'proposal bond', 'surety bond'], false, { notFoundReason: 'No bid bond requirement found in the document.' })(text));
+    compliance.Financial = financial;
+  }
+
+  if (depts.includes('Legal')) {
+    compliance.Legal = [
+      checkRow('Relevant Experience', 'Does RFP require relevant experience?', ['relevant experience', 'qualifications', 'eligibility'], false)(text),
+      checkRow('Registration Requirement', 'Is company registration required?', ['registration', 'registered to do business', 'certificate of registration'], false)(text),
+      checkRow('Financial Statement of Previous Year', 'Is previous year financial statement required?', ['prior year financial', 'previous year financial statement'], false)(text),
+      checkRow('Qualified Personnel', 'Does RFP specify qualified personnel requirements?', ['qualified personnel', 'key personnel', 'staff qualifications'], false)(text),
+      checkRow('Technical Knowhow', 'Does RFP require specific technical expertise?', ['technical knowhow', 'technical expertise', 'domain expertise'], false)(text),
+      checkRow('Expected Revenue Generation', 'Is expected revenue generation mentioned or estimable?', ['expected revenue', 'pricing schedule', 'fees and pricing', 'contract value'], true)(text),
+      checkRow('Period of Implementation', 'Is implementation period clearly defined?', ['implementation period', 'period of implementation', 'implementation timeline'], true)(text),
+      checkRow('Insurance Coverage', 'Is insurance coverage requirement stated?', ['insurance coverage', 'general liability', 'professional liability'], true)(text),
+      checkRow('Compliance of Law', 'Does RFP require compliance with applicable laws?', ['applicable law', 'governing law', 'compliance with law'], true)(text),
+      checkRow('Compliance Requirements (Data Protection)', 'Are data protection/privacy law compliance requirements mentioned?', ['data protection', 'privacy law', 'confidential information'], false)(text),
+      checkRow('State Registration', 'Is state registration required for project execution?', ['state registration', 'secretary of state'], false)(text),
+      checkRow('E-Verify', 'Does RFP require use of E-Verify system?', ['e-verify', 'everify'], false)(text),
+      checkRow('Contractual Obligations', 'Are termination clauses, liability limits, and dispute resolution acceptable?', ['termination', 'liability', 'dispute resolution'], false)(text)
+    ];
+  }
+
+  if (depts.includes('Operations')) {
+    const ops = [
+      checkRow('Insurance Requirement Form', 'Is an insurance requirement form needed?', ['insurance requirement', 'certificate of insurance'], true)(text),
+      checkRow('Information Form (Tax ID, Owner Name, Ownership %)', 'Is a company information form required?', ['tax id', 'owner name', '% of ownership', 'ownership disclosure'], false)(text),
+      checkRow('Small Business (MD)', 'Is Small Business certification required?', ['small business'], false)(text),
+      checkRow('MBE Certification', 'Is MBE certification required?', ['mbe', 'minority business'], false)(text),
+      checkRow('Workers Comp Insurance', 'Is Workers Compensation Insurance required?', ['workers compensation', "workers' compensation", 'workers comp'], true)(text),
+      checkRow('Business with Iran', 'Is a declaration required regarding business with Iran?', ['business with iran', 'iran certification', 'iran divestment'], false)(text)
+    ];
+    const deadline = findDeadline(text);
+    if (deadline) ops.push({ item: 'Submission Deadlines', question: 'Are submission deadlines clearly stated?', yesNo: 'YES', status: 'go', decisionLabel: 'CLEARED', reason: `Document states a submission deadline of ${deadline}.` });
+    else ops.push({ item: 'Submission Deadlines', question: 'Are submission deadlines clearly stated?', yesNo: 'NO', status: 'required', decisionLabel: 'REVIEW', reason: 'No clear submission deadline found — verify with issuer immediately.' });
+    ops.push(checkRow('Document Compliance', 'Are formatting and submission requirements clearly defined?', ['formatting requirements', 'submission requirements', 'page limit'], true)(text));
+    ops.push(checkRow('Signatory Authority', 'Is signatory authority requirement specified?', ['authorized signatory', 'signatory authority', 'duly authorized'], false)(text));
+    ops.push(checkRow('Vendor Registration', 'Is vendor registration required?', ['vendor registration', 'vendor portal', 'supplier registration', 'e-procurement'], false)(text));
+    compliance.Operations = ops;
+  }
+
+  if (depts.includes('Technical')) {
+    compliance.Technical = [
+      checkRow('Scope of Services Alignment', 'Does RFP scope align with company services?', ['identity and access management', 'iam', 'cybersecurity', 'identity management', 'access management'], true)(text),
+      checkRow('Technical Requirements', 'Do technical specs match company capabilities?', ['technical requirement', 'technical specification'], true)(text),
+      checkRow('Compliance with Industry Standards', 'Does RFP require adherence to industry standards?', ['industry standard', 'best practice', 'iso 27001', 'nist', 'soc 2'], true)(text),
+      checkRow('Security Considerations', 'Are security requirements mentioned (encryption, access controls)?', ['encryption', 'access control', 'authentication', 'mfa'], true)(text),
+      checkRow('Integration Needs', 'Does project require system integrations the company can support?', ['integration', 'api', 'interoperab'], true)(text)
+    ];
+  }
+
+  let total = 0, weighted = 0, hasNogo = false;
+  Object.values(compliance).forEach(arr => arr.forEach(t => {
+    total++;
+    if (t.status === 'go') weighted += 1;
+    else if (t.status === 'required') weighted += 0.6;
+    else if (t.status === 'escalate') weighted += 0.4;
+    else if (t.status === 'nogo') { weighted += 0; hasNogo = true; }
+  }));
+  let score = total ? Math.round(100 * weighted / total) : 0;
+  let overall = hasNogo ? 'nogo' : score >= 70 ? 'go' : score >= 45 ? 'caution' : 'nogo';
+  let reason = hasNogo
+    ? 'A hard SPS compliance rule was violated (e.g. insurance cap exceeded) — recommend NO-GO unless terms can be renegotiated.'
+    : overall === 'go' ? 'No blocking issues found against SPS compliance rules — this looks like a solid fit, review flagged items and proceed.'
+    : 'Multiple items need confirmation or escalation before this can proceed with confidence.';
+
+  // ── Capability / gap fit ────────────────────────────────────────────
+  const capPhrases = splitPhrases(capabilities);
+  const gapPhrases = splitPhrases(gaps);
+  let capabilityFit = null;
+  if (capPhrases.length || gapPhrases.length) {
+    const strengthHits = capPhrases.map(p => ({ phrase: p, relevant: phraseRelevant(text, p) }));
+    const gapHits = gapPhrases.map(p => ({ phrase: p, relevant: phraseRelevant(text, p) }));
+    const relevantGapCount = gapHits.filter(g => g.relevant).length;
+    const relevantStrengthCount = strengthHits.filter(s => s.relevant).length;
+
+    if (relevantGapCount > 0) {
+      score = Math.max(0, score - relevantGapCount * 10);
+      if (!hasNogo && overall === 'go') overall = 'caution';
+      reason += ` Additionally, ${relevantGapCount} stated capability gap${relevantGapCount > 1 ? 's' : ''} appear directly relevant to this RFP's requirements — see Capability Match below.`;
+    }
+    const noteParts = [];
+    if (relevantGapCount) noteParts.push(`${relevantGapCount} stated gap${relevantGapCount > 1 ? 's' : ''} line up with what this RFP is asking for.`);
+    if (relevantStrengthCount) noteParts.push(`${relevantStrengthCount} stated strength${relevantStrengthCount > 1 ? 's' : ''} line up with what this RFP is asking for.`);
+    capabilityFit = {
+      strengths: strengthHits.map(s => `${s.phrase}${s.relevant ? ' — matches a requirement in this RFP' : ' — not clearly required by this RFP'}`),
+      gaps: gapHits.map(g => `${g.phrase}${g.relevant ? ' — this RFP appears to require this' : ' — not clearly required by this RFP'}`),
+      note: noteParts.join(' ') || 'Keyword overlap check only found weak or no matches between your stated capabilities/gaps and this document — treat this as a rough signal, not certainty.'
+    };
+  }
+
+  const disqPatterns = [
+    { label: 'Late submission', kws: ['will not be considered', 'returned unopened', 'time-stamped'] },
+    { label: 'Debarment', kws: ['debarred', 'suspended or debarred'] },
+    { label: 'Collusion / fraud', kws: ['without collusion', 'collusion or fraud'] },
+    { label: 'Illegal alien workers', kws: ['illegal alien workers'] },
+    { label: 'Incomplete or missing information', kws: ['substantially incomplete', 'deemed non-responsive'] }
+  ];
+  const disqualifiers = [];
+  disqPatterns.forEach(p => { const snip = findSnippet(text, p.kws, 140); if (snip) disqualifiers.push(`${p.label}: "${snip}"`); });
+
+  const titleMatch = text.match(/(RFP|Request for Proposal)[^\n]{0,100}/i);
+  const title = titleMatch ? titleMatch[0].trim().slice(0, 90) : filename.replace(/\.[^.]+$/, '');
+
+  return {
+    title, filename,
+    summary: `Locally analysed ${filename} using SPS compliance rules across ${depts.join(', ')}. This is a rule-based scan — review flagged items manually before final submission.`,
+    deliverables: extractDeliverablesTree(text, pageStarts),
+    evaluation: extractEvaluation(text),
+    compliance, score, disqualifiers,
+    capabilityFit,
+    overall_decision: overall,
+    decision_reason: reason
+  };
+}
+
+// ── Render ───────────────────────────────────────────────────────────
+function renderResults(d) {
+  const dec = {
+    go: { cls: 'go', line1: 'CLEARED', line2: 'TO BID' },
+    nogo: { cls: 'nogo', line1: 'DENIED', line2: 'NO-GO' },
+    caution: { cls: 'caution', line1: 'CONDITIONAL', line2: 'CAUTION' }
+  };
+  const dm = dec[d.overall_decision] || dec.caution;
+
+  const delivN = (d.deliverables || []).reduce((n, p) => n + (p.children || []).length, 0);
+  const evalN = (d.evaluation || []).length;
+  let compN = 0; Object.values(d.compliance || {}).forEach(a => compN += a.length);
+
+  const evalRows = (d.evaluation || []).map(e => {
+    const w = Math.min(100, Math.max(0, e.weight || 0));
+    return `<div class="eval-row">
+      <div class="eval-w">${w}%</div>
+      <div class="eval-body">
+        <div class="eval-name">${e.criterion}</div>
+        ${e.description ? `<div class="eval-desc">${e.description}</div>` : ''}
+        <div class="eval-track"><div class="eval-fill" style="width:${w}%"></div></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const yesNoColor = v => v === 'YES' ? 'var(--stamp-go)' : v === 'NO' ? 'var(--stamp-nogo)' : 'var(--ink-faint)';
+  const tagStyle = status => {
+    if (status === 'go') return 'color:var(--stamp-go);border-color:var(--stamp-go);background:var(--stamp-go-bg);';
+    if (status === 'nogo') return 'color:var(--stamp-nogo);border-color:var(--stamp-nogo);background:var(--stamp-nogo-bg);';
+    if (status === 'escalate') return 'color:var(--stamp-caution);border-color:var(--stamp-caution);background:var(--stamp-caution-bg);';
+    return 'color:var(--brass);border-color:var(--brass);background:var(--brass-bg);';
+  };
+
+  const compDepts = Object.keys(d.compliance || {}).filter(k => (d.compliance[k] || []).length);
+  const compTables = compDepts.map(dept => {
+    const rows = d.compliance[dept].map(t => `
+      <tr>
+        <td class="cl-item" style="width:19%;">${t.item}</td>
+        <td class="cl-q" style="width:25%;">${t.question || ''}</td>
+        <td class="yn" style="width:8%;color:${yesNoColor(t.yesNo)};">${t.yesNo}</td>
+        <td style="width:13%;text-align:center;"><span class="stamp-tag" style="${tagStyle(t.status)}">${t.decisionLabel}</span></td>
+        <td class="cl-reason">${t.reason || ''}</td>
+      </tr>`).join('');
+    return `<div class="dept-page">
+      <div class="dept-page-hd"><span class="dept-swatch" style="background:${DEPT_COLOR[dept] || 'var(--ink-faint)'};"></span> ${dept} checklist</div>
+      <table class="cl-table">
+        <thead><tr><th>Item</th><th>Question</th><th style="text-align:center;">Y/N</th><th style="text-align:center;">Decision</th><th>Reason</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  }).join('<div class="divider"></div>');
+
+  const disqBlock = (d.disqualifiers && d.disqualifiers.length) ? `
+    <div class="disq-box">
+      <div class="hd">Potential disqualifiers</div>
+      <ul>${d.disqualifiers.map(x => `<li>${x}</li>`).join('')}</ul>
+    </div>` : '';
+
+  const cf = d.capabilityFit;
+  const fitBlock = (cf && ((cf.strengths || []).length || (cf.gaps || []).length)) ? `
+    <div class="file-section">
+      <div class="file-section-hd"><span class="t">Capability match</span><span class="c">vs. RFP requirements</span></div>
+      <div class="file-section-bd">
+        ${cf.note ? `<div class="fit-note">${cf.note}</div>` : ''}
+        <div class="fit-grid">
+          <div class="fit-col strengths">
+            <div class="hd">Stated strengths</div>
+            <ul>${(cf.strengths || []).map(x => `<li>${x}</li>`).join('') || '<li style="opacity:.5;">None entered</li>'}</ul>
+          </div>
+          <div class="fit-col gaps">
+            <div class="hd">Stated gaps</div>
+            <ul>${(cf.gaps || []).map(x => `<li>${x}</li>`).join('') || '<li style="opacity:.5;">None entered</li>'}</ul>
+          </div>
+        </div>
+      </div>
+    </div>` : '';
+
+  document.getElementById('view-results').innerHTML = `<div class="results">
+    <div class="result-top">
+      <div>
+        <div class="eyebrow">${caseNumber || ''}</div>
+        <div class="doc-title">${d.title || uploadedFile.name}</div>
+        <div class="engine-badge ${engineMode === 'ai' ? 'ai' : 'local'}">${engineMode === 'ai' ? '◆ AI-assisted analysis' : '● Offline rule engine'}</div>
+      </div>
+      <div class="action-btns">
+        <button class="btn-action" onclick="exportTxt()">Export .txt</button>
+        <button class="btn-action" onclick="resetPortal()">New case</button>
+      </div>
+    </div>
+
+    <div class="res-tabs">
+      <button class="res-tab ${resultsTab === 'overview' ? 'on' : ''}" onclick="setResultsTab('overview')">Overview</button>
+      <button class="res-tab ${resultsTab === 'deliverables' ? 'on' : ''}" onclick="setResultsTab('deliverables')">Deliverables <span class="cnt">${delivN}</span></button>
+    </div>
+
+    <div id="resPaneOverview" style="display:${resultsTab === 'overview' ? '' : 'none'};">
+      <div class="verdict-strip">
+        <div class="stamp ${dm.cls}">
+          <div class="stamp-face">
+            <div class="stamp-line1">${dm.line1}</div>
+            <div class="stamp-line2">${dm.line2}</div>
+          </div>
+        </div>
+        <div class="verdict-mid">
+          <div class="fit-score">
+            <div class="num">${d.score}</div>
+            <div class="lbl">FIT / 100</div>
+          </div>
+          <div class="verdict-text">${d.summary || ''} ${d.decision_reason || ''}</div>
+        </div>
+      </div>
+
+      ${disqBlock}
+
+      ${fitBlock}
+
+      <div class="ledger-bar">
+        <div class="ledger-cell"><div class="n">${delivN}</div><div class="l">Deliverables</div></div>
+        <div class="ledger-cell"><div class="n">${evalN}</div><div class="l">Eval criteria</div></div>
+        <div class="ledger-cell"><div class="n">${compN}</div><div class="l">Checklist items</div></div>
+      </div>
+
+      ${evalN ? `<div class="file-section">
+        <div class="file-section-hd"><span class="t">Evaluation criteria</span><span class="c">${evalN} criteria</span></div>
+        <div class="file-section-bd">${evalRows}</div>
+      </div>` : ''}
+
+      ${compTables}
+    </div>
+
+    <div id="resPaneDeliverables" style="display:${resultsTab === 'deliverables' ? '' : 'none'};">
+      ${renderDeliverablesTree(d.deliverables || [])}
+    </div>
+  </div>`;
+}
+
+function setResultsTab(tab) {
+  resultsTab = tab;
+  document.getElementById('resPaneOverview').style.display = tab === 'overview' ? '' : 'none';
+  document.getElementById('resPaneDeliverables').style.display = tab === 'deliverables' ? '' : 'none';
+  document.querySelectorAll('.res-tab').forEach((el, i) => el.classList.toggle('on', (tab === 'overview' && i === 0) || (tab === 'deliverables' && i === 1)));
+}
+
+// ── Deliverables tree editor ────────────────────────────────────────────
+function selectOptions(options, selected) {
+  return options.map(o => `<option value="${o}" ${o === selected ? 'selected' : ''}>${o}</option>`).join('');
+}
+function renderDeliverablesTree(tree) {
+  if (!tree.length) return `<div class="fit-note">No deliverables were extracted — add a section to start building the list manually.</div>` + addSectionBtn();
+  const sections = tree.map((p, pIdx) => {
+    const rows = (p.children || []).map((c, cIdx) => `
+      <div class="dtree-child-row">
+        <div class="num">${c.number}</div>
+        <input class="title-input" value="${(c.title || '').replace(/"/g, '&quot;')}" oninput="editDeliverable(${pIdx},${cIdx},'title',this.value)" />
+        <select onchange="editDeliverable(${pIdx},${cIdx},'responsible',this.value)">${selectOptions(RESPONSIBLE_OPTIONS, c.responsible)}</select>
+        <select onchange="editDeliverable(${pIdx},${cIdx},'subType',this.value)">${selectOptions(SUBTYPE_OPTIONS, c.subType)}</select>
+        <div class="dtree-page" title="Page in the uploaded RFP this was found on">${c.sourcePage ? 'p. ' + c.sourcePage : '—'}</div>
+        <div class="dtree-status ${c.status === 'Manual' ? 'manual' : 'auto'}">${c.status === 'Manual' ? 'Manual' : 'Auto'}</div>
+        <button class="dtree-icon-btn danger" onclick="removeDeliverableChild(${pIdx},${cIdx})" aria-label="Remove">✕</button>
+      </div>`).join('');
+    return `<div class="dtree-section">
+      <div class="dtree-parent-hd">
+        <div class="num">${p.number}</div>
+        <input class="parent-title" value="${(p.title || '').replace(/"/g, '&quot;')}" oninput="editDeliverableSection(${pIdx},this.value)" />
+        <span class="dtree-source-note">detected from RFP heading</span>
+        <button class="dtree-icon-btn danger" onclick="removeDeliverableSection(${pIdx})" aria-label="Remove section">✕</button>
+      </div>
+      ${rows}
+      <button class="dtree-add-child" onclick="addDeliverableChild(${pIdx})">+ Add item</button>
+    </div>`;
+  }).join('');
+  return sections + addSectionBtn();
+}
+function addSectionBtn() { return `<button class="dtree-add-section" onclick="addDeliverableSection()">+ Add section</button>`; }
+
+function renumberDeliverables() {
+  (analysisData.deliverables || []).forEach((p, pIdx) => {
+    p.number = String(pIdx + 1);
+    (p.children || []).forEach((c, cIdx) => { c.number = `${p.number}.${cIdx + 1}`; });
+  });
+}
+function refreshDeliverablesPane() {
+  renumberDeliverables();
+  document.getElementById('resPaneDeliverables').innerHTML = renderDeliverablesTree(analysisData.deliverables || []);
+  document.querySelector('.res-tab:nth-child(2) .cnt').textContent =
+    (analysisData.deliverables || []).reduce((n, p) => n + (p.children || []).length, 0);
+}
+function editDeliverable(pIdx, cIdx, field, value) {
+  const c = analysisData.deliverables[pIdx].children[cIdx];
+  c[field] = value;
+  c.status = 'Manual';
+  const badge = document.querySelectorAll('.dtree-section')[pIdx].querySelectorAll('.dtree-child-row')[cIdx].querySelector('.dtree-status');
+  badge.textContent = 'Manual'; badge.classList.remove('auto'); badge.classList.add('manual');
+}
+function editDeliverableSection(pIdx, value) {
+  analysisData.deliverables[pIdx].title = value;
+}
+function addDeliverableChild(pIdx) {
+  const p = analysisData.deliverables[pIdx];
+  p.children.push({ number: '', title: 'New item', responsible: 'Unassigned', subType: 'Narrative', sourcePage: null, status: 'Manual' });
+  refreshDeliverablesPane();
+}
+function removeDeliverableChild(pIdx, cIdx) {
+  analysisData.deliverables[pIdx].children.splice(cIdx, 1);
+  refreshDeliverablesPane();
+}
+function addDeliverableSection() {
+  analysisData.deliverables = analysisData.deliverables || [];
+  analysisData.deliverables.push({ number: '', title: 'New Section', children: [] });
+  refreshDeliverablesPane();
+}
+function removeDeliverableSection(pIdx) {
+  analysisData.deliverables.splice(pIdx, 1);
+  refreshDeliverablesPane();
+}
+
+function resetPortal() {
+  uploadedFile = null; analysisData = null; caseNumber = null;
+  document.getElementById('fileInfo').style.display = 'none';
+  document.getElementById('fileInput').value = '';
+  document.getElementById('btnAnalyse').disabled = true;
+  const cid = document.getElementById('caseId');
+  cid.textContent = 'NO CASE OPEN'; cid.classList.remove('open');
+  showErr(''); showView('upload');
+}
+
+function exportTxt() {
+  if (!analysisData) return;
+  const d = analysisData;
+  let t = `RFP CASE FILE — ${caseNumber || ''}\n${'='.repeat(50)}\n`;
+  t += `Document : ${d.title}\nFit Score: ${d.score}/100\nDecision : ${(d.overall_decision || '').toUpperCase()} — ${d.decision_reason}\n\n${d.summary}\n\n`;
+  if ((d.disqualifiers || []).length) {
+    t += `POTENTIAL DISQUALIFIERS\n${'-'.repeat(40)}\n`;
+    d.disqualifiers.forEach(x => t += `  ! ${x}\n`);
+    t += `\n`;
+  }
+  if (d.capabilityFit && ((d.capabilityFit.strengths || []).length || (d.capabilityFit.gaps || []).length)) {
+    t += `CAPABILITY MATCH\n${'-'.repeat(40)}\n`;
+    if (d.capabilityFit.note) t += `${d.capabilityFit.note}\n\n`;
+    t += `Strengths:\n`; (d.capabilityFit.strengths || []).forEach(x => t += `  + ${x}\n`);
+    t += `Gaps:\n`; (d.capabilityFit.gaps || []).forEach(x => t += `  - ${x}\n`);
+    t += `\n`;
+  }
+  t += `DELIVERABLES\n${'-'.repeat(40)}\n`;
+  (d.deliverables || []).forEach(p => {
+    t += `${p.number}. ${p.title}\n`;
+    (p.children || []).forEach(c => t += `  ${c.number} ${c.title}  [${c.responsible} · ${c.subType} · p.${c.sourcePage || '—'} · ${c.status}]\n`);
+  });
+  t += `\nEVALUATION CRITERIA\n${'-'.repeat(40)}\n`;
+  (d.evaluation || []).forEach(e => t += `${e.weight}%  ${e.criterion}: ${e.description}\n`);
+  t += `\nCOMPLIANCE CHECKLIST\n${'-'.repeat(40)}\n`;
+  Object.entries(d.compliance || {}).forEach(([dept, tasks]) => {
+    t += `\n[${dept.toUpperCase()}]\n`;
+    tasks.forEach(tk => t += `  ${tk.item} — ${tk.yesNo} — ${tk.decisionLabel}\n       Q: ${tk.question}\n       -> ${tk.reason}\n`);
+  });
+  const blob = new Blob([t], { type: 'text/plain' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `${caseNumber || 'rfp-case'}.txt`; a.click(); URL.revokeObjectURL(a.href);
+}
+
+initTabs();
+checkBackend();
+</script>
+</body>
+</html>
