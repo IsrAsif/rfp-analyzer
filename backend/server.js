@@ -122,24 +122,25 @@ exactly this shape:
 Rules for the JSON:
 - If no capabilities/gaps text was provided in the user message, return
   "capabilityFit": { "strengths": [], "gaps": [], "note": "" } — do not invent any.
+- Each request is a single document — analyze only what's given here, do not reference or
+  assume any other files. The document text may contain inline "[PAGE n]" markers showing
+  where each PDF page begins; these are not part of the RFP's actual content and must never
+  be quoted or referenced as document text.
 - "deliverables" must be a two-level parent/child structure, not a flat list, and it must
   be grounded in the document's OWN structure, not a generic template. Group each
-  submission item under the actual section/subsection heading it appears under in the RFP
-  text (e.g. if the document has "3.2 Technical Proposal" and "3.3 Cost Proposal" headings,
-  use those exact headings as parent titles). If an item has no identifiable governing
-  heading, group it under "General Requirements". Do not invent a fixed category list —
-  the parents should reflect this specific document. Number parents "1", "2", "3" in the
-  order they appear in the document, and children "1.1", "1.2", etc.
-- The document text may contain inline markers like "[PAGE 4]" showing where each PDF page
-  begins. For each deliverable child, set "sourcePage" to the page number from the nearest
+  submission item under the actual section/subsection heading it appears under (e.g. if the
+  document has "3.2 Technical Proposal" and "3.3 Cost Proposal" headings, use those exact
+  headings as parent titles). If an item has no identifiable governing heading, group it
+  under "General Requirements". Do not invent a fixed category list — the parents should
+  reflect this specific document. Number parents "1", "2", "3" in the order they appear, and
+  children "1.1", "1.2", etc.
+- For each deliverable child, set "sourcePage" to the page number from the nearest
   preceding "[PAGE n]" marker before that item. If the text has no such markers (a DOCX or
-  TXT source), set "sourcePage" to null — do not guess a page number. These markers are not
-  part of the RFP's actual content; never quote or reference them as document text.
+  TXT source), set "sourcePage" to null — do not guess a page number.
 - Deliverables must be extracted only from the part of the document describing submission
   requirements (scope of work, statement of work, submission/proposal requirements). Do NOT
-  pull items from, or duplicate content with, the Evaluation Criteria / Scoring section —
-  that section is analyzed separately as "evaluation" and its content must not appear in
-  "deliverables".
+  pull items from, or duplicate content with, any Evaluation Criteria / Scoring section —
+  that content is analyzed separately as "evaluation" and must not appear in "deliverables".
 - For each deliverable child item: "responsible" should be "Unassigned" (do not guess a
   specific person), "subType" must be one of: "Narrative", "Form", "Certification",
   "Pricing/Cost", "Reference", "Resume/Key Personnel", "Other", and "status" must always be
@@ -281,6 +282,12 @@ app.post('/api/analyze', analyzeLimiter, async (req, res) => {
         : 'The AI did not return valid JSON. Try again — if it keeps happening, check the backend terminal for the raw output it logged.';
       return res.status(502).json({ error: hint });
     }
+
+    // Stamp the exact filename the client sent — never trust the model to
+    // report which file something came from, since each request is a
+    // single document and the server already knows its real name.
+    parsed.fileName = filename || null;
+    (parsed.deliverables || []).forEach(p => (p.children || []).forEach(c => { c.sourceFile = filename || null; }));
 
     return res.json(parsed);
   } catch (err) {

@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/mammoth@1.7.0/mammoth.browser.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -269,9 +270,29 @@
 
   /* ── Results ────────────────────────────────────────────── */
   .results { display: flex; flex-direction: column; gap: 1.5rem; }
+  .case-selector { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: -0.5rem; }
+  .case-pill {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.02em;
+    padding: 6px 12px; border: 1px solid var(--rule-strong); background: var(--paper);
+    color: var(--ink-soft); border-radius: 20px; cursor: pointer; max-width: 220px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .case-pill:hover { border-color: var(--ink-soft); color: var(--ink); }
+  .case-pill.on { background: var(--navy); border-color: var(--navy); color: var(--navy-text); font-weight: 600; }
   .result-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
   .doc-title { font-family: var(--font-display); font-size: 18px; font-weight: 600; max-width: 480px; }
+  .doc-filename { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); margin-top: 2px; }
   .action-btns { display: flex; gap: 8px; }
+  .export-select {
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.03em;
+    padding: 7px 26px 7px 12px; border: 1px solid var(--rule-strong); background: var(--paper);
+    color: var(--ink-soft); border-radius: 3px; cursor: pointer;
+    appearance: none; -webkit-appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, var(--ink-faint) 50%), linear-gradient(135deg, var(--ink-faint) 50%, transparent 50%);
+    background-position: calc(100% - 14px) center, calc(100% - 9px) center;
+    background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+  }
+  .export-select:hover { border-color: var(--ink-soft); color: var(--ink); }
   .btn-action {
     font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.03em;
     padding: 7px 12px; border: 1px solid var(--rule-strong); background: var(--paper);
@@ -392,7 +413,7 @@
   .dtree-icon-btn.danger:hover { color: var(--stamp-nogo); border-color: var(--stamp-nogo); }
 
   .dtree-child-row {
-    display: grid; grid-template-columns: 42px 1.6fr 1fr 1fr 66px 78px 24px;
+    display: grid; grid-template-columns: 36px 1.3fr 0.85fr 0.85fr 112px 68px 22px;
     gap: 8px; align-items: center; padding: 0.55rem 1rem; border-bottom: 1px solid var(--rule);
   }
   .dtree-child-row:last-of-type { border-bottom: none; }
@@ -410,8 +431,9 @@
   .dtree-status.auto { color: var(--ink-faint); border-color: var(--rule-strong); background: var(--paper); }
   .dtree-status.manual { color: var(--brass); border-color: var(--brass); background: var(--brass-bg); }
   .dtree-page {
-    font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint);
+    font-family: var(--font-mono); font-size: 9.5px; color: var(--ink-faint);
     text-align: center; padding: 5px 4px; border: 1px solid var(--rule); border-radius: 3px; background: var(--paper);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .dtree-source-note {
     font-family: var(--font-mono); font-size: 9.5px; color: var(--ink-faint); font-style: italic; flex-shrink: 0;
@@ -503,11 +525,11 @@
       <!-- UPLOAD -->
       <div id="view-upload">
         <div class="drop-zone" id="dropZone">
-          <input type="file" id="fileInput" accept=".pdf,.doc,.docx,.txt" />
+          <input type="file" id="fileInput" accept=".pdf,.doc,.docx,.txt" multiple />
           <div class="drop-mark">＋</div>
-          <div class="drop-title">Insert RFP document</div>
-          <div class="drop-sub">PDF, DOCX, or TXT — up to 10 MB</div>
-          <div class="drop-badge" id="dropBadge">◆ Claude API mode — set the engine below</div>
+          <div class="drop-title">Insert RFP document(s)</div>
+          <div class="drop-sub">PDF, DOCX, or TXT — multiple files supported, up to 10 MB each</div>
+          <div class="drop-badge" id="dropBadge">◆ AI mode — set the engine below</div>
         </div>
 
         <div id="fileInfo" style="display:none;"></div>
@@ -575,7 +597,9 @@ const DEPT_COLOR = {
 };
 
 let selectedDepts = new Set(DEPTS);
-let uploadedFile = null;
+let uploadedFiles = [];
+let analysisCases = [];
+let activeCaseIndex = 0;
 let analysisData = null;
 let caseNumber = null;
 let resultsTab = 'overview';
@@ -650,9 +674,16 @@ const STEPS = [
   { label: 'Building compliance checklist' },
   { label: 'Applying SPS clearance rules' },
 ];
-function setProcStep(idx) {
+function setProcStep(idx, fileIdx, fileTotal) {
   const el = document.getElementById('procSteps');
   el.innerHTML = '';
+  if (fileTotal && fileTotal > 1) {
+    const hd = document.createElement('div');
+    hd.className = 'proc-step active';
+    hd.style.marginBottom = '4px';
+    hd.innerHTML = `<span class="mk">▸</span> File ${fileIdx + 1} of ${fileTotal}`;
+    el.appendChild(hd);
+  }
   STEPS.forEach((s, i) => {
     const div = document.createElement('div');
     const cls = i < idx ? 'done' : i === idx ? 'active' : '';
@@ -671,11 +702,13 @@ function showView(name) {
 }
 
 // ── File handling ────────────────────────────────────────────────────
-document.getElementById('fileInput').addEventListener('change', e => handleFile(e.target.files[0]));
+const MAX_FILES = 10;
+const MAX_FILE_BYTES = 10 * 1024 * 1024;
+document.getElementById('fileInput').addEventListener('change', e => handleFiles(e.target.files));
 const dropZone = document.getElementById('dropZone');
 dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag'); });
 dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
-dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag'); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag'); if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); });
 
 function makeCaseNumber() {
   const y = new Date().getFullYear();
@@ -683,32 +716,47 @@ function makeCaseNumber() {
   return `CASE-${y}-${n}`;
 }
 
-function handleFile(file) {
-  if (!file) return;
-  if (file.size > 10 * 1024 * 1024) { showErr('File exceeds 10 MB.'); return; }
-  uploadedFile = file;
-  caseNumber = makeCaseNumber();
-  showErr('');
-  const info = document.getElementById('fileInfo');
-  info.style.display = '';
-  info.innerHTML = `<div class="file-row">
-    <div class="file-tag">FILE</div>
-    <div class="file-name">${file.name}</div>
-    <div class="file-size">${(file.size/1024).toFixed(0)} KB</div>
-    <button class="btn-remove" onclick="removeFile()" aria-label="Remove">✕</button>
-  </div>`;
+function handleFiles(fileList) {
+  const incoming = Array.from(fileList || []);
+  if (!incoming.length) return;
+
+  const oversized = incoming.filter(f => f.size > MAX_FILE_BYTES);
+  if (oversized.length) { showErr(`${oversized.map(f => f.name).join(', ')} exceed${oversized.length === 1 ? 's' : ''} 10 MB and ${oversized.length === 1 ? 'was' : 'were'} skipped.`); }
+
+  const existingKeys = new Set(uploadedFiles.map(f => f.name + f.size));
+  const accepted = incoming.filter(f => f.size <= MAX_FILE_BYTES && !existingKeys.has(f.name + f.size));
+  uploadedFiles = uploadedFiles.concat(accepted).slice(0, MAX_FILES);
+
+  if (!uploadedFiles.length) return;
+  if (!caseNumber) caseNumber = makeCaseNumber();
+  if (!oversized.length) showErr('');
+  renderFileList();
   document.getElementById('btnAnalyse').disabled = false;
   const cid = document.getElementById('caseId');
   cid.textContent = caseNumber;
   cid.classList.add('open');
 }
-function removeFile() {
-  uploadedFile = null; caseNumber = null;
-  document.getElementById('fileInfo').style.display = 'none';
+function renderFileList() {
+  const info = document.getElementById('fileInfo');
+  if (!uploadedFiles.length) { info.style.display = 'none'; info.innerHTML = ''; return; }
+  info.style.display = '';
+  info.innerHTML = uploadedFiles.map((file, i) => `<div class="file-row">
+    <div class="file-tag">FILE ${i + 1}</div>
+    <div class="file-name">${file.name}</div>
+    <div class="file-size">${(file.size / 1024).toFixed(0)} KB</div>
+    <button class="btn-remove" onclick="removeFile(${i})" aria-label="Remove">✕</button>
+  </div>`).join('');
+}
+function removeFile(idx) {
+  uploadedFiles.splice(idx, 1);
   document.getElementById('fileInput').value = '';
-  document.getElementById('btnAnalyse').disabled = true;
-  const cid = document.getElementById('caseId');
-  cid.textContent = 'NO CASE OPEN'; cid.classList.remove('open');
+  if (!uploadedFiles.length) {
+    caseNumber = null;
+    document.getElementById('btnAnalyse').disabled = true;
+    const cid = document.getElementById('caseId');
+    cid.textContent = 'NO CASE OPEN'; cid.classList.remove('open');
+  }
+  renderFileList();
 }
 function showErr(msg) {
   const el = document.getElementById('errBox');
@@ -718,48 +766,60 @@ function showErr(msg) {
 }
 
 // ── Main analysis ────────────────────────────────────────────────────
+// Each uploaded file is analyzed completely independently — its own
+// deliverables, compliance checklist, capability fit, score, and verdict.
+// Files are never combined or renamed; every case keeps the exact
+// filename it was uploaded with.
 async function startAnalysis() {
-  if (!uploadedFile) return;
+  if (!uploadedFiles.length) return;
   if (selectedDepts.size === 0) { showErr('Select at least one department to review.'); return; }
   showView('scan'); setProcStep(0);
-
-  let fileText = '', pageStarts = null;
-  try {
-    const extracted = await extractText(uploadedFile);
-    fileText = extracted.text;
-    pageStarts = extracted.pageStarts;
-  }
-  catch (e) { showView('upload'); showErr('Could not read that file. Try a PDF, DOCX, or TXT.'); return; }
 
   const depts = [...selectedDepts];
   const capabilities = document.getElementById('capabilitiesInput').value.trim();
   const gaps = document.getElementById('gapsInput').value.trim();
-  let parsed;
+  const total = uploadedFiles.length;
+  const cases = [];
 
-  if (engineMode === 'ai') {
-    await tick(200); setProcStep(1);
-    try {
-      const aiText = insertPageMarkers(fileText, pageStarts);
-      parsed = await callBackendAnalyze(aiText, depts, uploadedFile.name, capabilities, gaps);
-    } catch (e) {
-      showView('upload');
-      showErr(`AI analysis failed: ${e.message}. Check the backend is running (see engine status above), or switch to Offline mode.`);
-      return;
+  for (let i = 0; i < total; i++) {
+    const file = uploadedFiles[i];
+    setProcStep(0, i, total);
+    let extracted;
+    try { extracted = await extractText(file); }
+    catch (e) { showView('upload'); showErr(`Could not read "${file.name}". Try a PDF, DOCX, or TXT.`); return; }
+
+    let parsed;
+    if (engineMode === 'ai') {
+      setProcStep(1, i, total);
+      try {
+        const aiText = insertPageMarkers(extracted.text, extracted.pageStarts);
+        parsed = await callBackendAnalyze(aiText, depts, file.name, capabilities, gaps);
+      } catch (e) {
+        showView('upload');
+        showErr(`AI analysis of "${file.name}" failed: ${e.message}. Check the backend is running (see engine status above), or switch to Offline mode.`);
+        return;
+      }
+      setProcStep(3, i, total); await tick(150);
+    } else {
+      setProcStep(1, i, total); await tick(120);
+      setProcStep(2, i, total); await tick(150);
+      setProcStep(3, i, total); await tick(120);
+      parsed = analyseLocally(extracted.text, depts, file.name, capabilities, gaps, extracted.pageStarts);
     }
-    setProcStep(3); await tick(250); setProcStep(4); await tick(300);
-  } else {
-    await tick(250); setProcStep(1);
-    await tick(350); setProcStep(2);
-    await tick(350); setProcStep(3);
-    await tick(300);
-    parsed = analyseLocally(fileText, depts, uploadedFile.name, capabilities, gaps, pageStarts);
-    setProcStep(4);
-    await tick(400);
+    // The server/engine already knows the exact filename for this request;
+    // stamp it onto every deliverable rather than trusting inferred text.
+    (parsed.deliverables || []).forEach(p => (p.children || []).forEach(c => { c.sourceFile = file.name; }));
+    parsed.fileName = file.name;
+    cases.push({ fileName: file.name, data: parsed });
   }
 
-  analysisData = parsed;
+  setProcStep(4); await tick(300);
+
+  analysisCases = cases;
+  activeCaseIndex = 0;
+  analysisData = cases[0].data;
   resultsTab = 'overview';
-  renderResults(parsed);
+  renderResults(analysisData);
   showView('results');
 }
 function tick(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -1047,6 +1107,15 @@ function phraseRelevant(text, phrase) {
   return hits.length >= Math.max(1, Math.ceil(words.length * 0.4));
 }
 
+function truncateName(name, n = 16) {
+  if (!name) return '';
+  return name.length > n ? name.slice(0, n - 1) + '…' : name;
+}
+function baseFileName(name) {
+  if (!name) return '';
+  return name.replace(/\.[^.]+$/, '').replace(/[^\w\-]+/g, '_').slice(0, 60);
+}
+
 function analyseLocally(text, depts, filename, capabilities, gaps, pageStarts) {
   const compliance = {};
 
@@ -1269,15 +1338,26 @@ function renderResults(d) {
       </div>
     </div>` : '';
 
+  const caseSelector = analysisCases.length > 1 ? `
+    <div class="case-selector">
+      ${analysisCases.map((c, i) => `<button class="case-pill ${i === activeCaseIndex ? 'on' : ''}" onclick="switchCase(${i})" title="${c.fileName}">${truncateName(c.fileName, 26)}</button>`).join('')}
+    </div>` : '';
+
   document.getElementById('view-results').innerHTML = `<div class="results">
+    ${caseSelector}
     <div class="result-top">
       <div>
-        <div class="eyebrow">${caseNumber || ''}</div>
-        <div class="doc-title">${d.title || uploadedFile.name}</div>
+        <div class="eyebrow">${caseNumber || ''}${analysisCases.length > 1 ? ` · File ${activeCaseIndex + 1} of ${analysisCases.length}` : ''}</div>
+        <div class="doc-title">${d.title || d.fileName || ''}</div>
+        <div class="doc-filename">${d.fileName || ''}</div>
         <div class="engine-badge ${engineMode === 'ai' ? 'ai' : 'local'}">${engineMode === 'ai' ? '◆ AI-assisted analysis' : '● Offline rule engine'}</div>
       </div>
       <div class="action-btns">
-        <button class="btn-action" onclick="exportTxt()">Export .txt</button>
+        <select class="export-select" id="exportSelect" onchange="handleExportSelect(this)">
+          <option value="" selected disabled>Export ▾</option>
+          <option value="txt">Export as .txt</option>
+          <option value="pdf">Export as .pdf</option>
+        </select>
         <button class="btn-action" onclick="resetPortal()">New case</button>
       </div>
     </div>
@@ -1335,6 +1415,13 @@ function setResultsTab(tab) {
   document.querySelectorAll('.res-tab').forEach((el, i) => el.classList.toggle('on', (tab === 'overview' && i === 0) || (tab === 'deliverables' && i === 1)));
 }
 
+function switchCase(i) {
+  if (!analysisCases[i]) return;
+  activeCaseIndex = i;
+  analysisData = analysisCases[i].data;
+  renderResults(analysisData);
+}
+
 // ── Deliverables tree editor ────────────────────────────────────────────
 function selectOptions(options, selected) {
   return options.map(o => `<option value="${o}" ${o === selected ? 'selected' : ''}>${o}</option>`).join('');
@@ -1348,7 +1435,7 @@ function renderDeliverablesTree(tree) {
         <input class="title-input" value="${(c.title || '').replace(/"/g, '&quot;')}" oninput="editDeliverable(${pIdx},${cIdx},'title',this.value)" />
         <select onchange="editDeliverable(${pIdx},${cIdx},'responsible',this.value)">${selectOptions(RESPONSIBLE_OPTIONS, c.responsible)}</select>
         <select onchange="editDeliverable(${pIdx},${cIdx},'subType',this.value)">${selectOptions(SUBTYPE_OPTIONS, c.subType)}</select>
-        <div class="dtree-page" title="Page in the uploaded RFP this was found on">${c.sourcePage ? 'p. ' + c.sourcePage : '—'}</div>
+        <div class="dtree-page" title="${(c.sourceFile || 'Unknown source')}${c.sourcePage ? ', page ' + c.sourcePage : ''}">${c.sourceFile ? truncateName(c.sourceFile) : '—'}${c.sourcePage ? ' · p.' + c.sourcePage : ''}</div>
         <div class="dtree-status ${c.status === 'Manual' ? 'manual' : 'auto'}">${c.status === 'Manual' ? 'Manual' : 'Auto'}</div>
         <button class="dtree-icon-btn danger" onclick="removeDeliverableChild(${pIdx},${cIdx})" aria-label="Remove">✕</button>
       </div>`).join('');
@@ -1391,7 +1478,7 @@ function editDeliverableSection(pIdx, value) {
 }
 function addDeliverableChild(pIdx) {
   const p = analysisData.deliverables[pIdx];
-  p.children.push({ number: '', title: 'New item', responsible: 'Unassigned', subType: 'Narrative', sourcePage: null, status: 'Manual' });
+  p.children.push({ number: '', title: 'New item', responsible: 'Unassigned', subType: 'Narrative', sourceFile: null, sourcePage: null, status: 'Manual' });
   refreshDeliverablesPane();
 }
 function removeDeliverableChild(pIdx, cIdx) {
@@ -1409,8 +1496,9 @@ function removeDeliverableSection(pIdx) {
 }
 
 function resetPortal() {
-  uploadedFile = null; analysisData = null; caseNumber = null;
+  uploadedFiles = []; analysisCases = []; activeCaseIndex = 0; analysisData = null; caseNumber = null;
   document.getElementById('fileInfo').style.display = 'none';
+  document.getElementById('fileInfo').innerHTML = '';
   document.getElementById('fileInput').value = '';
   document.getElementById('btnAnalyse').disabled = true;
   const cid = document.getElementById('caseId');
@@ -1418,10 +1506,106 @@ function resetPortal() {
   showErr(''); showView('upload');
 }
 
+function handleExportSelect(sel) {
+  const v = sel.value;
+  sel.value = '';
+  if (v === 'txt') exportTxt();
+  else if (v === 'pdf') exportPdf();
+}
+
+function exportPdf() {
+  if (!analysisData || !window.jspdf) return;
+  const d = analysisData;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const marginX = 48;
+  const maxW = pageW - marginX * 2;
+  let y = 56;
+
+  function ensure(h) { if (y + h > pageH - 48) { doc.addPage(); y = 56; } }
+  function heading(text) {
+    ensure(26);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(12.5); doc.setTextColor(23, 42, 58);
+    doc.text(text, marginX, y); y += 14;
+    doc.setDrawColor(200); doc.setLineWidth(0.6); doc.line(marginX, y - 4, pageW - marginX, y - 4); y += 10;
+  }
+  function para(text, opts = {}) {
+    if (!text) return;
+    doc.setFont('helvetica', opts.bold ? 'bold' : 'normal');
+    doc.setFontSize(opts.size || 9.5);
+    const c = opts.color || [30, 30, 30];
+    doc.setTextColor(c[0], c[1], c[2]);
+    const lines = doc.splitTextToSize(text, maxW - (opts.indent || 0));
+    ensure(lines.length * 12.5 + 4);
+    doc.text(lines, marginX + (opts.indent || 0), y);
+    y += lines.length * 12.5 + (opts.gap ?? 5);
+  }
+
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(140, 140, 140);
+  doc.text('SPS · RFP CASE FILE', marginX, y); y += 16;
+  para(d.title || d.fileName || 'Untitled RFP', { bold: true, size: 16, color: [20, 20, 20], gap: 4 });
+  para(`${d.fileName || ''}   ·   ${caseNumber || ''}   ·   Engine: ${engineMode === 'ai' ? 'AI-assisted' : 'Offline rule engine'}`, { size: 9, color: [120, 120, 120], gap: 18 });
+
+  const vLabel = { go: 'CLEARED TO BID', caution: 'CONDITIONAL CLEARANCE', nogo: 'CLEARANCE DENIED' }[d.overall_decision] || String(d.overall_decision || '').toUpperCase();
+  const vColor = { go: [44, 82, 51], caution: [133, 90, 18], nogo: [143, 39, 30] }[d.overall_decision] || [30, 30, 30];
+  para(`${vLabel}  —  Fit Score ${d.score}/100`, { bold: true, size: 13, color: vColor, gap: 8 });
+  para(`${d.summary || ''} ${d.decision_reason || ''}`.trim(), { size: 9.5, gap: 16 });
+
+  if ((d.disqualifiers || []).length) {
+    heading('Potential Disqualifiers');
+    d.disqualifiers.forEach(x => para('•  ' + x, { size: 9 }));
+    y += 4;
+  }
+
+  if (d.capabilityFit && ((d.capabilityFit.strengths || []).length || (d.capabilityFit.gaps || []).length)) {
+    heading('Capability Match');
+    if (d.capabilityFit.note) para(d.capabilityFit.note, { size: 9, gap: 8 });
+    if ((d.capabilityFit.strengths || []).length) {
+      para('Strengths', { bold: true, size: 9, gap: 3 });
+      d.capabilityFit.strengths.forEach(x => para('+  ' + x, { size: 9, indent: 8, gap: 3 }));
+    }
+    if ((d.capabilityFit.gaps || []).length) {
+      para('Gaps', { bold: true, size: 9, gap: 3 });
+      d.capabilityFit.gaps.forEach(x => para('–  ' + x, { size: 9, indent: 8, gap: 3 }));
+    }
+    y += 4;
+  }
+
+  if ((d.deliverables || []).length) {
+    heading('Deliverables');
+    d.deliverables.forEach(p => {
+      para(`${p.number}. ${p.title}`, { bold: true, size: 10.5, gap: 3 });
+      (p.children || []).forEach(c => {
+        para(`${c.number}  ${c.title}`, { size: 9.5, indent: 10, gap: 1 });
+        para(`${c.responsible} · ${c.subType} · ${c.sourceFile || 'unknown source'} p.${c.sourcePage || '—'} · ${c.status}`, { size: 8, indent: 10, color: [130, 130, 130], gap: 7 });
+      });
+      y += 3;
+    });
+  }
+
+  if ((d.evaluation || []).length) {
+    heading('Evaluation Criteria');
+    d.evaluation.forEach(e => para(`${e.weight}%  ${e.criterion}${e.description ? ' — ' + e.description : ''}`, { size: 9.5, gap: 5 }));
+    y += 4;
+  }
+
+  Object.entries(d.compliance || {}).forEach(([dept, tasks]) => {
+    heading(`${dept} Checklist`);
+    tasks.forEach(t => {
+      para(`${t.item}   [${t.yesNo} · ${t.decisionLabel}]`, { bold: true, size: 9.5, gap: 2 });
+      if (t.reason) para(t.reason, { size: 8.5, indent: 10, color: [110, 110, 110], gap: 8 });
+    });
+  });
+
+  doc.save(`${baseFileName(d.fileName) || caseNumber || 'rfp-case'}-analysis.pdf`);
+}
+
 function exportTxt() {
   if (!analysisData) return;
   const d = analysisData;
-  let t = `RFP CASE FILE — ${caseNumber || ''}\n${'='.repeat(50)}\n`;
+  let t = `RFP CASE FILE — ${caseNumber || ''}\nSource file: ${d.fileName || 'unknown'}\n${'='.repeat(50)}\n`;
   t += `Document : ${d.title}\nFit Score: ${d.score}/100\nDecision : ${(d.overall_decision || '').toUpperCase()} — ${d.decision_reason}\n\n${d.summary}\n\n`;
   if ((d.disqualifiers || []).length) {
     t += `POTENTIAL DISQUALIFIERS\n${'-'.repeat(40)}\n`;
@@ -1438,7 +1622,7 @@ function exportTxt() {
   t += `DELIVERABLES\n${'-'.repeat(40)}\n`;
   (d.deliverables || []).forEach(p => {
     t += `${p.number}. ${p.title}\n`;
-    (p.children || []).forEach(c => t += `  ${c.number} ${c.title}  [${c.responsible} · ${c.subType} · p.${c.sourcePage || '—'} · ${c.status}]\n`);
+    (p.children || []).forEach(c => t += `  ${c.number} ${c.title}  [${c.responsible} · ${c.subType} · ${c.sourceFile || 'unknown source'} p.${c.sourcePage || '—'} · ${c.status}]\n`);
   });
   t += `\nEVALUATION CRITERIA\n${'-'.repeat(40)}\n`;
   (d.evaluation || []).forEach(e => t += `${e.weight}%  ${e.criterion}: ${e.description}\n`);
@@ -1449,7 +1633,7 @@ function exportTxt() {
   });
   const blob = new Blob([t], { type: 'text/plain' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = `${caseNumber || 'rfp-case'}.txt`; a.click(); URL.revokeObjectURL(a.href);
+  a.download = `${baseFileName(d.fileName) || caseNumber || 'rfp-case'}-analysis.txt`; a.click(); URL.revokeObjectURL(a.href);
 }
 
 initTabs();
