@@ -270,15 +270,6 @@
 
   /* ── Results ────────────────────────────────────────────── */
   .results { display: flex; flex-direction: column; gap: 1.5rem; }
-  .case-selector { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: -0.5rem; }
-  .case-pill {
-    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.02em;
-    padding: 6px 12px; border: 1px solid var(--rule-strong); background: var(--paper);
-    color: var(--ink-soft); border-radius: 20px; cursor: pointer; max-width: 220px;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
-  .case-pill:hover { border-color: var(--ink-soft); color: var(--ink); }
-  .case-pill.on { background: var(--navy); border-color: var(--navy); color: var(--navy-text); font-weight: 600; }
   .result-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
   .doc-title { font-family: var(--font-display); font-size: 18px; font-weight: 600; max-width: 480px; }
   .doc-filename { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); margin-top: 2px; }
@@ -439,6 +430,11 @@
     font-family: var(--font-mono); font-size: 9.5px; color: var(--ink-faint); font-style: italic; flex-shrink: 0;
     white-space: nowrap;
   }
+  .dtree-file-badge {
+    font-family: var(--font-mono); font-size: 9.5px; color: var(--brass); background: var(--brass-bg);
+    border: 1px solid var(--brass); border-radius: 20px; padding: 3px 9px; flex-shrink: 0;
+    max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
   .dtree-add-child {
     margin: 0.6rem 1rem 0.8rem; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.03em;
     color: var(--ink-soft); background: none; border: 1px dashed var(--rule-strong); border-radius: 3px;
@@ -598,8 +594,6 @@ const DEPT_COLOR = {
 
 let selectedDepts = new Set(DEPTS);
 let uploadedFiles = [];
-let analysisCases = [];
-let activeCaseIndex = 0;
 let analysisData = null;
 let caseNumber = null;
 let resultsTab = 'overview';
@@ -766,10 +760,12 @@ function showErr(msg) {
 }
 
 // ── Main analysis ────────────────────────────────────────────────────
-// Each uploaded file is analyzed completely independently — its own
-// deliverables, compliance checklist, capability fit, score, and verdict.
-// Files are never combined or renamed; every case keeps the exact
-// filename it was uploaded with.
+// The RFP is treated as ONE case, even when it's submitted as multiple
+// files (a main RFP plus exhibits). There is exactly one verdict, one
+// score, one compliance checklist, and one capability match — computed
+// across all uploaded documents together. Deliverables are the exception:
+// each one is still traced back to the exact file, section, and page it
+// came from, since that's what makes the checklist trustworthy.
 async function startAnalysis() {
   if (!uploadedFiles.length) return;
   if (selectedDepts.size === 0) { showErr('Select at least one department to review.'); return; }
@@ -779,47 +775,45 @@ async function startAnalysis() {
   const capabilities = document.getElementById('capabilitiesInput').value.trim();
   const gaps = document.getElementById('gapsInput').value.trim();
   const total = uploadedFiles.length;
-  const cases = [];
+  const fileResults = [];
 
   for (let i = 0; i < total; i++) {
     const file = uploadedFiles[i];
     setProcStep(0, i, total);
-    let extracted;
-    try { extracted = await extractText(file); }
-    catch (e) { showView('upload'); showErr(`Could not read "${file.name}". Try a PDF, DOCX, or TXT.`); return; }
-
-    let parsed;
-    if (engineMode === 'ai') {
-      setProcStep(1, i, total);
-      try {
-        const aiText = insertPageMarkers(extracted.text, extracted.pageStarts);
-        parsed = await callBackendAnalyze(aiText, depts, file.name, capabilities, gaps);
-      } catch (e) {
-        showView('upload');
-        showErr(`AI analysis of "${file.name}" failed: ${e.message}. Check the backend is running (see engine status above), or switch to Offline mode.`);
-        return;
-      }
-      setProcStep(3, i, total); await tick(150);
-    } else {
-      setProcStep(1, i, total); await tick(120);
-      setProcStep(2, i, total); await tick(150);
-      setProcStep(3, i, total); await tick(120);
-      parsed = analyseLocally(extracted.text, depts, file.name, capabilities, gaps, extracted.pageStarts);
+    try {
+      const extracted = await extractText(file);
+      fileResults.push({ fileName: file.name, text: extracted.text, pageStarts: extracted.pageStarts });
+    } catch (e) {
+      showView('upload'); showErr(`Could not read "${file.name}". Try a PDF, DOCX, or TXT.`); return;
     }
-    // The server/engine already knows the exact filename for this request;
-    // stamp it onto every deliverable rather than trusting inferred text.
-    (parsed.deliverables || []).forEach(p => (p.children || []).forEach(c => { c.sourceFile = file.name; }));
-    parsed.fileName = file.name;
-    cases.push({ fileName: file.name, data: parsed });
   }
 
-  setProcStep(4); await tick(300);
+  let parsed;
+  if (engineMode === 'ai') {
+    setProcStep(1);
+    try {
+      const aiText = buildMultiDocText(fileResults);
+      parsed = await callBackendAnalyze(aiText, depts, fileResults.map(f => f.fileName).join(', '), capabilities, gaps);
+    } catch (e) {
+      showView('upload');
+      showErr(`AI analysis failed: ${e.message}. Check the backend is running (see engine status above), or switch to Offline mode.`);
+      return;
+    }
+    setProcStep(3); await tick(200); setProcStep(4); await tick(300);
+  } else {
+    setProcStep(1); await tick(200);
+    setProcStep(2); await tick(250);
+    setProcStep(3); await tick(200);
+    parsed = analyseLocallyMulti(fileResults, depts, capabilities, gaps);
+    setProcStep(4); await tick(300);
+  }
 
-  analysisCases = cases;
-  activeCaseIndex = 0;
-  analysisData = cases[0].data;
+  parsed.fileName = fileResults.map(f => f.fileName).join(', ');
+  if (!parsed.sourceFiles || !parsed.sourceFiles.length) parsed.sourceFiles = fileResults.map(f => f.fileName);
+
+  analysisData = parsed;
   resultsTab = 'overview';
-  renderResults(analysisData);
+  renderResults(parsed);
   showView('results');
 }
 function tick(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -835,6 +829,34 @@ function insertPageMarkers(text, pageStarts) {
     out = out.slice(0, start) + `\n[PAGE ${page}]\n` + out.slice(start);
   }
   return out;
+}
+
+// Combines multiple uploaded documents into one text blob for the AI
+// engine, with explicit "=== FILE: name ===" delimiters plus inline
+// "[PAGE n]" markers per file, so the model can attribute every
+// deliverable to the exact file and page it came from while still judging
+// the RFP as a single package.
+//
+// Each file is truncated to its own fair share of the overall budget
+// BEFORE concatenation. Truncating the combined blob as a single string
+// (the old approach) let one large file — e.g. a 50-page main IFB —
+// silently consume the entire budget and push every file after it out of
+// what the AI ever sees, even though the caller thinks all files were
+// analyzed. Truncating per-file first guarantees every uploaded document
+// gets real representation.
+const TOTAL_TEXT_BUDGET = 180000;
+function buildMultiDocText(fileResults) {
+  const perFileBudget = Math.max(20000, Math.floor(TOTAL_TEXT_BUDGET / fileResults.length));
+  return fileResults.map(f => {
+    let text = f.text;
+    let truncated = false;
+    if (text.length > perFileBudget) {
+      text = text.slice(0, perFileBudget);
+      truncated = true;
+    }
+    const marked = insertPageMarkers(text, f.pageStarts);
+    return `=== FILE: ${f.fileName} ===\n${marked}${truncated ? '\n[...file truncated for length...]' : ''}`;
+  }).join('\n\n');
 }
 
 // ── AI backend call ──────────────────────────────────────────────────
@@ -960,18 +982,28 @@ function findDeadline(text) {
 // headings ("3.2 Technical Proposal"), "SECTION IV: ..." style, and short
 // ALL-CAPS heading lines. Used so deliverables are grouped under the RFP's
 // own structure instead of a generic fixed category list.
-function extractHeadings(text) {
+function extractHeadings(text, excludeName) {
   const found = [];
   const patterns = [
     /^[ \t]{0,3}(\d{1,2}(?:\.\d{1,2}){0,2})\s+([A-Z][A-Za-z0-9 ,\/&\-()]{3,80})[ \t]*$/gm,
     /^[ \t]{0,3}(?:SECTION|Section)\s+([IVXLC]+|\d+)[:.\-]?\s+([A-Z][A-Za-z0-9 ,\/&\-()]{3,80})[ \t]*$/gm,
     /^[ \t]{0,3}([A-Z][A-Z0-9 ,&\/\-]{7,70})[ \t]*$/gm
   ];
+  const excludeNorm = excludeName ? excludeName.replace(/\.[^.]+$/, '').toLowerCase().replace(/[^a-z0-9]+/g, '') : null;
   patterns.forEach(re => {
     let m;
     while ((m = re.exec(text))) {
       const title = (m[2] || m[1] || '').trim();
-      if (title && title.length >= 4 && title.length <= 90) found.push({ title, offset: m.index });
+      if (!title || title.length < 4 || title.length > 90) continue;
+      // Reject document control stamps / filenames that repeat as PDF page
+      // headers or footers (e.g. "364_rfp_PingOne_..._FINAL") — real
+      // section headings essentially never contain underscores or long
+      // digit runs, and this specific false-positive is common when a
+      // source PDF stamps its own filename on every page.
+      if (/_/.test(title) || /\d{5,}/.test(title)) continue;
+      const titleNorm = title.toLowerCase().replace(/[^a-z0-9]+/g, '');
+      if (excludeNorm && titleNorm && (titleNorm === excludeNorm || excludeNorm.includes(titleNorm) || titleNorm.includes(excludeNorm))) continue;
+      found.push({ title, offset: m.index });
     }
   });
   found.sort((a, b) => a.offset - b.offset);
@@ -1040,8 +1072,8 @@ function classifyDeliverable(title) {
 // Builds the two-level parent/child deliverables structure both engines
 // return. Parents are the RFP's own section headings (not a generic fixed
 // category list); each child carries the source page it was found on.
-function extractDeliverablesTree(text, pageStarts) {
-  const headings = extractHeadings(text);
+function extractDeliverablesTree(text, pageStarts, fileName) {
+  const headings = extractHeadings(text, fileName);
   const items = extractDeliverableItemsWithOffsets(text);
   const bySection = new Map();
   items.forEach(({ title, offset }) => {
@@ -1114,6 +1146,49 @@ function truncateName(name, n = 16) {
 function baseFileName(name) {
   if (!name) return '';
   return name.replace(/\.[^.]+$/, '').replace(/[^\w\-]+/g, '_').slice(0, 60);
+}
+
+// Builds the deliverables tree across ALL uploaded files: each file is run
+// through the normal per-document heading/page extraction, then the
+// resulting sections are concatenated into ONE tree for the single RFP
+// case. Each section carries a clean "sourceFile" field (never baked into
+// the title text) so the UI can show a single compact file badge per
+// section instead of repeating the filename on every child row. Sections
+// are never merged across files, even if two files happen to share a
+// heading name — each file's sections stay in their own parent entries.
+function buildMultiFileDeliverables(fileResults) {
+  const tree = [];
+  let pNum = 0;
+  fileResults.forEach(f => {
+    const perFile = extractDeliverablesTree(f.text, f.pageStarts, f.fileName);
+    perFile.forEach(section => {
+      pNum++;
+      tree.push({
+        number: String(pNum),
+        title: section.title,
+        sourceFile: f.fileName,
+        children: (section.children || []).map((c, i) => ({
+          ...c,
+          number: `${pNum}.${i + 1}`
+        }))
+      });
+    });
+  });
+  return tree;
+}
+
+// Entry point for the offline engine. The RFP is ONE case even when
+// submitted as several files: compliance, evaluation, capability fit, and
+// the verdict are computed against all documents combined (an RFP's rules
+// typically apply across its own exhibits); deliverables are computed
+// per-file so each item keeps its exact file/section/page provenance.
+function analyseLocallyMulti(fileResults, depts, capabilities, gaps) {
+  const combinedText = fileResults.map(f => f.text).join('\n\n');
+  const filenameLabel = fileResults.map(f => f.fileName).join(', ');
+  const result = analyseLocally(combinedText, depts, filenameLabel, capabilities, gaps, null);
+  result.deliverables = buildMultiFileDeliverables(fileResults);
+  result.sourceFiles = fileResults.map(f => f.fileName);
+  return result;
 }
 
 function analyseLocally(text, depts, filename, capabilities, gaps, pageStarts) {
@@ -1338,18 +1413,12 @@ function renderResults(d) {
       </div>
     </div>` : '';
 
-  const caseSelector = analysisCases.length > 1 ? `
-    <div class="case-selector">
-      ${analysisCases.map((c, i) => `<button class="case-pill ${i === activeCaseIndex ? 'on' : ''}" onclick="switchCase(${i})" title="${c.fileName}">${truncateName(c.fileName, 26)}</button>`).join('')}
-    </div>` : '';
-
   document.getElementById('view-results').innerHTML = `<div class="results">
-    ${caseSelector}
     <div class="result-top">
       <div>
-        <div class="eyebrow">${caseNumber || ''}${analysisCases.length > 1 ? ` · File ${activeCaseIndex + 1} of ${analysisCases.length}` : ''}</div>
+        <div class="eyebrow">${caseNumber || ''}</div>
         <div class="doc-title">${d.title || d.fileName || ''}</div>
-        <div class="doc-filename">${d.fileName || ''}</div>
+        <div class="doc-filename">${(d.sourceFiles && d.sourceFiles.length ? d.sourceFiles : [d.fileName]).filter(Boolean).join(' · ')}</div>
         <div class="engine-badge ${engineMode === 'ai' ? 'ai' : 'local'}">${engineMode === 'ai' ? '◆ AI-assisted analysis' : '● Offline rule engine'}</div>
       </div>
       <div class="action-btns">
@@ -1415,35 +1484,41 @@ function setResultsTab(tab) {
   document.querySelectorAll('.res-tab').forEach((el, i) => el.classList.toggle('on', (tab === 'overview' && i === 0) || (tab === 'deliverables' && i === 1)));
 }
 
-function switchCase(i) {
-  if (!analysisCases[i]) return;
-  activeCaseIndex = i;
-  analysisData = analysisCases[i].data;
-  renderResults(analysisData);
-}
-
 // ── Deliverables tree editor ────────────────────────────────────────────
 function selectOptions(options, selected) {
   return options.map(o => `<option value="${o}" ${o === selected ? 'selected' : ''}>${o}</option>`).join('');
 }
 function renderDeliverablesTree(tree) {
   if (!tree.length) return `<div class="fit-note">No deliverables were extracted — add a section to start building the list manually.</div>` + addSectionBtn();
+  const distinctFiles = new Set(tree.map(p => p.sourceFile).filter(Boolean));
+  const showFile = distinctFiles.size > 0;
   const sections = tree.map((p, pIdx) => {
-    const rows = (p.children || []).map((c, cIdx) => `
+    const rows = (p.children || []).map((c, cIdx) => {
+      const pageBadge = c.sourcePage ? `p. ${c.sourcePage}` : 'no page ref';
+      const pageTitle = c.sourcePage
+        ? `${p.sourceFile || ''}, page ${c.sourcePage}`
+        : `${p.sourceFile || 'Unknown source'} — page numbers are only available for PDF uploads`;
+      return `
       <div class="dtree-child-row">
         <div class="num">${c.number}</div>
         <input class="title-input" value="${(c.title || '').replace(/"/g, '&quot;')}" oninput="editDeliverable(${pIdx},${cIdx},'title',this.value)" />
         <select onchange="editDeliverable(${pIdx},${cIdx},'responsible',this.value)">${selectOptions(RESPONSIBLE_OPTIONS, c.responsible)}</select>
         <select onchange="editDeliverable(${pIdx},${cIdx},'subType',this.value)">${selectOptions(SUBTYPE_OPTIONS, c.subType)}</select>
-        <div class="dtree-page" title="${(c.sourceFile || 'Unknown source')}${c.sourcePage ? ', page ' + c.sourcePage : ''}">${c.sourceFile ? truncateName(c.sourceFile) : '—'}${c.sourcePage ? ' · p.' + c.sourcePage : ''}</div>
+        <div class="dtree-page" title="${pageTitle}">${pageBadge}</div>
         <div class="dtree-status ${c.status === 'Manual' ? 'manual' : 'auto'}">${c.status === 'Manual' ? 'Manual' : 'Auto'}</div>
         <button class="dtree-icon-btn danger" onclick="removeDeliverableChild(${pIdx},${cIdx})" aria-label="Remove">✕</button>
-      </div>`).join('');
+      </div>`;
+    }).join('');
+    const noteText = p.title === 'General Requirements' ? 'no clear heading found' : 'detected from RFP heading';
+    const fileBadge = showFile
+      ? `<span class="dtree-file-badge" title="${p.sourceFile || 'Unknown source'}">${p.sourceFile ? truncateName(p.sourceFile, 28) : '?'}</span>`
+      : '';
     return `<div class="dtree-section">
       <div class="dtree-parent-hd">
         <div class="num">${p.number}</div>
         <input class="parent-title" value="${(p.title || '').replace(/"/g, '&quot;')}" oninput="editDeliverableSection(${pIdx},this.value)" />
-        <span class="dtree-source-note">detected from RFP heading</span>
+        ${fileBadge}
+        <span class="dtree-source-note">${noteText}</span>
         <button class="dtree-icon-btn danger" onclick="removeDeliverableSection(${pIdx})" aria-label="Remove section">✕</button>
       </div>
       ${rows}
@@ -1478,7 +1553,7 @@ function editDeliverableSection(pIdx, value) {
 }
 function addDeliverableChild(pIdx) {
   const p = analysisData.deliverables[pIdx];
-  p.children.push({ number: '', title: 'New item', responsible: 'Unassigned', subType: 'Narrative', sourceFile: null, sourcePage: null, status: 'Manual' });
+  p.children.push({ number: '', title: 'New item', responsible: 'Unassigned', subType: 'Narrative', sourcePage: null, status: 'Manual' });
   refreshDeliverablesPane();
 }
 function removeDeliverableChild(pIdx, cIdx) {
@@ -1487,7 +1562,7 @@ function removeDeliverableChild(pIdx, cIdx) {
 }
 function addDeliverableSection() {
   analysisData.deliverables = analysisData.deliverables || [];
-  analysisData.deliverables.push({ number: '', title: 'New Section', children: [] });
+  analysisData.deliverables.push({ number: '', title: 'New Section', sourceFile: null, children: [] });
   refreshDeliverablesPane();
 }
 function removeDeliverableSection(pIdx) {
@@ -1496,7 +1571,7 @@ function removeDeliverableSection(pIdx) {
 }
 
 function resetPortal() {
-  uploadedFiles = []; analysisCases = []; activeCaseIndex = 0; analysisData = null; caseNumber = null;
+  uploadedFiles = []; analysisData = null; caseNumber = null;
   document.getElementById('fileInfo').style.display = 'none';
   document.getElementById('fileInfo').innerHTML = '';
   document.getElementById('fileInput').value = '';
@@ -1576,10 +1651,10 @@ function exportPdf() {
   if ((d.deliverables || []).length) {
     heading('Deliverables');
     d.deliverables.forEach(p => {
-      para(`${p.number}. ${p.title}`, { bold: true, size: 10.5, gap: 3 });
+      para(`${p.number}. ${p.title}${p.sourceFile ? '  [' + p.sourceFile + ']' : ''}`, { bold: true, size: 10.5, gap: 3 });
       (p.children || []).forEach(c => {
         para(`${c.number}  ${c.title}`, { size: 9.5, indent: 10, gap: 1 });
-        para(`${c.responsible} · ${c.subType} · ${c.sourceFile || 'unknown source'} p.${c.sourcePage || '—'} · ${c.status}`, { size: 8, indent: 10, color: [130, 130, 130], gap: 7 });
+        para(`${c.responsible} · ${c.subType} · ${c.sourcePage ? 'p.' + c.sourcePage : 'no page ref'} · ${c.status}`, { size: 8, indent: 10, color: [130, 130, 130], gap: 7 });
       });
       y += 3;
     });
@@ -1599,13 +1674,13 @@ function exportPdf() {
     });
   });
 
-  doc.save(`${baseFileName(d.fileName) || caseNumber || 'rfp-case'}-analysis.pdf`);
+  doc.save(`${caseNumber || baseFileName(d.fileName) || 'rfp-case'}-analysis.pdf`);
 }
 
 function exportTxt() {
   if (!analysisData) return;
   const d = analysisData;
-  let t = `RFP CASE FILE — ${caseNumber || ''}\nSource file: ${d.fileName || 'unknown'}\n${'='.repeat(50)}\n`;
+  let t = `RFP CASE FILE — ${caseNumber || ''}\nSource file(s): ${d.fileName || 'unknown'}\n${'='.repeat(50)}\n`;
   t += `Document : ${d.title}\nFit Score: ${d.score}/100\nDecision : ${(d.overall_decision || '').toUpperCase()} — ${d.decision_reason}\n\n${d.summary}\n\n`;
   if ((d.disqualifiers || []).length) {
     t += `POTENTIAL DISQUALIFIERS\n${'-'.repeat(40)}\n`;
@@ -1621,8 +1696,8 @@ function exportTxt() {
   }
   t += `DELIVERABLES\n${'-'.repeat(40)}\n`;
   (d.deliverables || []).forEach(p => {
-    t += `${p.number}. ${p.title}\n`;
-    (p.children || []).forEach(c => t += `  ${c.number} ${c.title}  [${c.responsible} · ${c.subType} · ${c.sourceFile || 'unknown source'} p.${c.sourcePage || '—'} · ${c.status}]\n`);
+    t += `${p.number}. ${p.title}${p.sourceFile ? '  [' + p.sourceFile + ']' : ''}\n`;
+    (p.children || []).forEach(c => t += `  ${c.number} ${c.title}  [${c.responsible} · ${c.subType} · ${c.sourcePage ? 'p.' + c.sourcePage : 'no page ref'} · ${c.status}]\n`);
   });
   t += `\nEVALUATION CRITERIA\n${'-'.repeat(40)}\n`;
   (d.evaluation || []).forEach(e => t += `${e.weight}%  ${e.criterion}: ${e.description}\n`);
@@ -1633,7 +1708,7 @@ function exportTxt() {
   });
   const blob = new Blob([t], { type: 'text/plain' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = `${baseFileName(d.fileName) || caseNumber || 'rfp-case'}-analysis.txt`; a.click(); URL.revokeObjectURL(a.href);
+  a.download = `${caseNumber || baseFileName(d.fileName) || 'rfp-case'}-analysis.txt`; a.click(); URL.revokeObjectURL(a.href);
 }
 
 initTabs();
