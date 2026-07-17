@@ -209,19 +209,6 @@
 
   .scope-row { margin-top: 1.5rem; }
 
-  .profile-row { margin-top: 1.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .profile-field label {
-    display: block; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase;
-    color: var(--ink-faint); margin-bottom: 6px;
-  }
-  .profile-field textarea {
-    width: 100%; min-height: 78px; resize: vertical; font-family: var(--font-body); font-size: 12.5px;
-    color: var(--ink); background: var(--paper); border: 1px solid var(--rule-strong); border-radius: 4px;
-    padding: 0.65rem 0.75rem; line-height: 1.5;
-  }
-  .profile-field textarea:focus { outline: none; border-color: var(--ink-soft); }
-  .profile-hint { font-size: 11px; color: var(--ink-faint); margin-top: 6px; grid-column: 1 / -1; }
-  @media (max-width: 560px) { .profile-row { grid-template-columns: 1fr; } }
   .scope-label {
     font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase;
     color: var(--ink-faint); margin-bottom: 8px;
@@ -341,16 +328,6 @@
   .disq-box li::before { content: '⚑'; position: absolute; left: 0; top: 0; }
 
   .fit-note { font-size: 12px; color: var(--ink-soft); margin-bottom: 0.9rem; line-height: 1.5; }
-  .fit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
-  .fit-col .hd { font-family: var(--font-mono); font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 8px; }
-  .fit-col.strengths .hd { color: var(--stamp-go); }
-  .fit-col.gaps .hd { color: var(--stamp-nogo); }
-  .fit-col ul { list-style: none; display: flex; flex-direction: column; gap: 7px; }
-  .fit-col li { font-size: 12.5px; line-height: 1.5; padding-left: 14px; position: relative; }
-  .fit-col li::before { position: absolute; left: 0; top: 1px; font-size: 10px; }
-  .fit-col.strengths li::before { content: '✓'; color: var(--stamp-go); }
-  .fit-col.gaps li::before { content: '!'; color: var(--stamp-nogo); }
-  @media (max-width: 560px) { .fit-grid { grid-template-columns: 1fr; } }
 
   .ledger-bar { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--rule-strong); border-radius: 4px; overflow: hidden; }
   .ledger-cell { padding: 0.9rem 0.5rem; text-align: center; border-right: 1px solid var(--rule); }
@@ -533,18 +510,6 @@
         <div class="scope-row">
           <div class="scope-label">Review scope</div>
           <div class="scope-hint" id="scopeHint">All four departments selected. Use the folder tabs above to narrow the review.</div>
-        </div>
-
-        <div class="profile-row">
-          <div class="profile-field">
-            <label for="capabilitiesInput">Company capabilities</label>
-            <textarea id="capabilitiesInput" placeholder="e.g. Identity &amp; access management, SSO/MFA implementation, SOC 2 audits, federal IAM contracts, 24/7 support"></textarea>
-          </div>
-          <div class="profile-field">
-            <label for="gapsInput">Company gaps</label>
-            <textarea id="gapsInput" placeholder="e.g. No cleared/TS personnel, limited hardware manufacturing, no 24/7 SOC coverage yet"></textarea>
-          </div>
-          <div class="profile-hint">Optional, but recommended: the analysis weighs the RFP's requirements against what you enter here — both engines use it to flag capability gaps, not just fixed SPS policy rules.</div>
         </div>
 
         <div class="engine-row">
@@ -762,18 +727,16 @@ function showErr(msg) {
 // ── Main analysis ────────────────────────────────────────────────────
 // The RFP is treated as ONE case, even when it's submitted as multiple
 // files (a main RFP plus exhibits). There is exactly one verdict, one
-// score, one compliance checklist, and one capability match — computed
-// across all uploaded documents together. Deliverables are the exception:
-// each one is still traced back to the exact file, section, and page it
-// came from, since that's what makes the checklist trustworthy.
+// score, and one compliance checklist — computed across all uploaded
+// documents together. Deliverables are the exception: each one is still
+// traced back to the exact file, section, and page it came from, since
+// that's what makes the checklist trustworthy.
 async function startAnalysis() {
   if (!uploadedFiles.length) return;
   if (selectedDepts.size === 0) { showErr('Select at least one department to review.'); return; }
   showView('scan'); setProcStep(0);
 
   const depts = [...selectedDepts];
-  const capabilities = document.getElementById('capabilitiesInput').value.trim();
-  const gaps = document.getElementById('gapsInput').value.trim();
   const total = uploadedFiles.length;
   const fileResults = [];
 
@@ -793,7 +756,7 @@ async function startAnalysis() {
     setProcStep(1);
     try {
       const aiText = buildMultiDocText(fileResults);
-      parsed = await callBackendAnalyze(aiText, depts, fileResults.map(f => f.fileName).join(', '), capabilities, gaps);
+      parsed = await callBackendAnalyze(aiText, depts, fileResults.map(f => f.fileName).join(', '));
     } catch (e) {
       showView('upload');
       showErr(`AI analysis failed: ${e.message}. Check the backend is running (see engine status above), or switch to Offline mode.`);
@@ -804,7 +767,7 @@ async function startAnalysis() {
     setProcStep(1); await tick(200);
     setProcStep(2); await tick(250);
     setProcStep(3); await tick(200);
-    parsed = analyseLocallyMulti(fileResults, depts, capabilities, gaps);
+    parsed = analyseLocallyMulti(fileResults, depts);
     setProcStep(4); await tick(300);
   }
 
@@ -860,11 +823,11 @@ function buildMultiDocText(fileResults) {
 }
 
 // ── AI backend call ──────────────────────────────────────────────────
-async function callBackendAnalyze(text, departments, filename, capabilities, gaps) {
+async function callBackendAnalyze(text, departments, filename) {
   const res = await fetch(`${API_BASE}/api/analyze`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text, departments, filename, capabilities, gaps })
+    body: JSON.stringify({ text, departments, filename })
   });
   if (!res.ok) {
     let msg = `HTTP ${res.status}`;
@@ -1127,18 +1090,6 @@ function extractEvaluation(text) {
   return out;
 }
 
-function splitPhrases(s) {
-  if (!s) return [];
-  return s.split(/[,;\n]/).map(x => x.trim()).filter(Boolean).slice(0, 12);
-}
-function phraseRelevant(text, phrase) {
-  const words = phrase.toLowerCase().split(/\s+/).filter(w => w.length > 3);
-  if (!words.length) return false;
-  const lower = text.toLowerCase();
-  const hits = words.filter(w => lower.includes(w));
-  return hits.length >= Math.max(1, Math.ceil(words.length * 0.4));
-}
-
 function truncateName(name, n = 16) {
   if (!name) return '';
   return name.length > n ? name.slice(0, n - 1) + '…' : name;
@@ -1178,20 +1129,20 @@ function buildMultiFileDeliverables(fileResults) {
 }
 
 // Entry point for the offline engine. The RFP is ONE case even when
-// submitted as several files: compliance, evaluation, capability fit, and
-// the verdict are computed against all documents combined (an RFP's rules
-// typically apply across its own exhibits); deliverables are computed
-// per-file so each item keeps its exact file/section/page provenance.
-function analyseLocallyMulti(fileResults, depts, capabilities, gaps) {
+// submitted as several files: compliance, evaluation, and the verdict are
+// computed against all documents combined (an RFP's rules typically apply
+// across its own exhibits); deliverables are computed per-file so each
+// item keeps its exact file/section/page provenance.
+function analyseLocallyMulti(fileResults, depts) {
   const combinedText = fileResults.map(f => f.text).join('\n\n');
   const filenameLabel = fileResults.map(f => f.fileName).join(', ');
-  const result = analyseLocally(combinedText, depts, filenameLabel, capabilities, gaps, null);
+  const result = analyseLocally(combinedText, depts, filenameLabel, null);
   result.deliverables = buildMultiFileDeliverables(fileResults);
   result.sourceFiles = fileResults.map(f => f.fileName);
   return result;
 }
 
-function analyseLocally(text, depts, filename, capabilities, gaps, pageStarts) {
+function analyseLocally(text, depts, filename, pageStarts) {
   const compliance = {};
 
   if (depts.includes('Financial')) {
@@ -1286,31 +1237,6 @@ function analyseLocally(text, depts, filename, capabilities, gaps, pageStarts) {
     : overall === 'go' ? 'No blocking issues found against SPS compliance rules — this looks like a solid fit, review flagged items and proceed.'
     : 'Multiple items need confirmation or escalation before this can proceed with confidence.';
 
-  // ── Capability / gap fit ────────────────────────────────────────────
-  const capPhrases = splitPhrases(capabilities);
-  const gapPhrases = splitPhrases(gaps);
-  let capabilityFit = null;
-  if (capPhrases.length || gapPhrases.length) {
-    const strengthHits = capPhrases.map(p => ({ phrase: p, relevant: phraseRelevant(text, p) }));
-    const gapHits = gapPhrases.map(p => ({ phrase: p, relevant: phraseRelevant(text, p) }));
-    const relevantGapCount = gapHits.filter(g => g.relevant).length;
-    const relevantStrengthCount = strengthHits.filter(s => s.relevant).length;
-
-    if (relevantGapCount > 0) {
-      score = Math.max(0, score - relevantGapCount * 10);
-      if (!hasNogo && overall === 'go') overall = 'caution';
-      reason += ` Additionally, ${relevantGapCount} stated capability gap${relevantGapCount > 1 ? 's' : ''} appear directly relevant to this RFP's requirements — see Capability Match below.`;
-    }
-    const noteParts = [];
-    if (relevantGapCount) noteParts.push(`${relevantGapCount} stated gap${relevantGapCount > 1 ? 's' : ''} line up with what this RFP is asking for.`);
-    if (relevantStrengthCount) noteParts.push(`${relevantStrengthCount} stated strength${relevantStrengthCount > 1 ? 's' : ''} line up with what this RFP is asking for.`);
-    capabilityFit = {
-      strengths: strengthHits.map(s => `${s.phrase}${s.relevant ? ' — matches a requirement in this RFP' : ' — not clearly required by this RFP'}`),
-      gaps: gapHits.map(g => `${g.phrase}${g.relevant ? ' — this RFP appears to require this' : ' — not clearly required by this RFP'}`),
-      note: noteParts.join(' ') || 'Keyword overlap check only found weak or no matches between your stated capabilities/gaps and this document — treat this as a rough signal, not certainty.'
-    };
-  }
-
   const disqPatterns = [
     { label: 'Late submission', kws: ['will not be considered', 'returned unopened', 'time-stamped'] },
     { label: 'Debarment', kws: ['debarred', 'suspended or debarred'] },
@@ -1330,7 +1256,6 @@ function analyseLocally(text, depts, filename, capabilities, gaps, pageStarts) {
     deliverables: extractDeliverablesTree(text, pageStarts),
     evaluation: extractEvaluation(text),
     compliance, score, disqualifiers,
-    capabilityFit,
     overall_decision: overall,
     decision_reason: reason
   };
@@ -1394,25 +1319,6 @@ function renderResults(d) {
       <ul>${d.disqualifiers.map(x => `<li>${x}</li>`).join('')}</ul>
     </div>` : '';
 
-  const cf = d.capabilityFit;
-  const fitBlock = (cf && ((cf.strengths || []).length || (cf.gaps || []).length)) ? `
-    <div class="file-section">
-      <div class="file-section-hd"><span class="t">Capability match</span><span class="c">vs. RFP requirements</span></div>
-      <div class="file-section-bd">
-        ${cf.note ? `<div class="fit-note">${cf.note}</div>` : ''}
-        <div class="fit-grid">
-          <div class="fit-col strengths">
-            <div class="hd">Stated strengths</div>
-            <ul>${(cf.strengths || []).map(x => `<li>${x}</li>`).join('') || '<li style="opacity:.5;">None entered</li>'}</ul>
-          </div>
-          <div class="fit-col gaps">
-            <div class="hd">Stated gaps</div>
-            <ul>${(cf.gaps || []).map(x => `<li>${x}</li>`).join('') || '<li style="opacity:.5;">None entered</li>'}</ul>
-          </div>
-        </div>
-      </div>
-    </div>` : '';
-
   document.getElementById('view-results').innerHTML = `<div class="results">
     <div class="result-top">
       <div>
@@ -1454,8 +1360,6 @@ function renderResults(d) {
       </div>
 
       ${disqBlock}
-
-      ${fitBlock}
 
       <div class="ledger-bar">
         <div class="ledger-cell"><div class="n">${delivN}</div><div class="l">Deliverables</div></div>
@@ -1634,20 +1538,6 @@ function exportPdf() {
     y += 4;
   }
 
-  if (d.capabilityFit && ((d.capabilityFit.strengths || []).length || (d.capabilityFit.gaps || []).length)) {
-    heading('Capability Match');
-    if (d.capabilityFit.note) para(d.capabilityFit.note, { size: 9, gap: 8 });
-    if ((d.capabilityFit.strengths || []).length) {
-      para('Strengths', { bold: true, size: 9, gap: 3 });
-      d.capabilityFit.strengths.forEach(x => para('+  ' + x, { size: 9, indent: 8, gap: 3 }));
-    }
-    if ((d.capabilityFit.gaps || []).length) {
-      para('Gaps', { bold: true, size: 9, gap: 3 });
-      d.capabilityFit.gaps.forEach(x => para('–  ' + x, { size: 9, indent: 8, gap: 3 }));
-    }
-    y += 4;
-  }
-
   if ((d.deliverables || []).length) {
     heading('Deliverables');
     d.deliverables.forEach(p => {
@@ -1685,13 +1575,6 @@ function exportTxt() {
   if ((d.disqualifiers || []).length) {
     t += `POTENTIAL DISQUALIFIERS\n${'-'.repeat(40)}\n`;
     d.disqualifiers.forEach(x => t += `  ! ${x}\n`);
-    t += `\n`;
-  }
-  if (d.capabilityFit && ((d.capabilityFit.strengths || []).length || (d.capabilityFit.gaps || []).length)) {
-    t += `CAPABILITY MATCH\n${'-'.repeat(40)}\n`;
-    if (d.capabilityFit.note) t += `${d.capabilityFit.note}\n\n`;
-    t += `Strengths:\n`; (d.capabilityFit.strengths || []).forEach(x => t += `  + ${x}\n`);
-    t += `Gaps:\n`; (d.capabilityFit.gaps || []).forEach(x => t += `  - ${x}\n`);
     t += `\n`;
   }
   t += `DELIVERABLES\n${'-'.repeat(40)}\n`;
